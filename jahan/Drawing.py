@@ -10,6 +10,13 @@ palette = \
         "#fa983a", "#eb2f06", "#1e3799", "#3c6382", "#38ada9"
     ]
 
+currentOrder = 0
+
+
+def incrementOrder():
+    global currentOrder
+    currentOrder = currentOrder + 1
+
 
 def getColorFormPalette(index):
     h = palette[index % len(palette)]
@@ -18,8 +25,11 @@ def getColorFormPalette(index):
     return rgb
 
 
-def BrightenColor(color):
-    return color[0] * 0.5 + 0.5, color[1] * 0.5 + 0.5, color[2] * 0.5 + 0.5
+def BrightenColor(color, preserve=0.8):
+    brightUp = 1 - preserve
+    return color[0] * preserve + brightUp, \
+           color[1] * preserve + brightUp, \
+           color[2] * preserve + brightUp
 
 
 def creatMapPlot():
@@ -28,9 +38,10 @@ def creatMapPlot():
 
 
 def addCircle(axes, center: Vector2D, radius: float, color=(0, 0, 0)):
-    filled_circle = plt.Circle((center.X, center.Y), radius, color=color)
+    filled_circle = plt.Circle((center.X, center.Y), radius, color=color, zorder=currentOrder)
     axes.set_aspect(1)
     axes.add_artist(filled_circle)
+    incrementOrder()
 
 
 def addText(axes, center: Vector2D, text: string, color=(0, 0, 0), bold: bool = True):
@@ -41,20 +52,61 @@ def addText(axes, center: Vector2D, text: string, color=(0, 0, 0), bold: bool = 
                     formattedText,
                     color=color,
                     verticalalignment='center',
-                    horizontalalignment='center')
+                    horizontalalignment='center',
+                    zorder=currentOrder)
 
     axes.set_aspect(1)
     axes.add_artist(text)
+    incrementOrder()
 
 
-def addLine(axes, a: Vector2D, b: Vector2D, color=(0, 0, 0), width=1):
-    plt.plot([a.X, b.X], [a.Y, b.Y], c=color, linewidth=width)
+def addLine(axes, a: Vector2D, b: Vector2D, color=(0, 0, 0), width=1, style='-'):
+    line = plt.Line2D([a.X, b.X], [a.Y, b.Y],
+                      c=color, linewidth=width, linestyle=style, zorder=currentOrder)
     axes.set_aspect(1)
+    axes.add_artist(line)
+    incrementOrder()
 
 
-def addCanvas(axes, canvas: Canvas2D):
-    for point in canvas.points:
-        addCircle(axes, point, 0.005, (0.8, 0.8, 0.8))
+def addFilledPolygon(axes, polygon: List[Vector2D], color=(0, 0, 0)):
+    points = list(map(lambda v: v.asList, polygon))
+    poly = plt.Polygon(points, closed=True, color=color, fill=False, zorder=currentOrder)
+    axes.set_aspect(1)
+    axes.add_artist(poly)
+    incrementOrder()
+
+
+def addOutlinePolygon(axes, polygon: List[Vector2D], outlineColor=(0, 0, 0), fillColor=(0, 0, 0)):
+    points = list(map(lambda v: v.asList, polygon))
+    poly = plt.Polygon(points,
+                       closed=True,
+                       edgecolor=outlineColor,
+                       facecolor=fillColor,
+                       zorder=currentOrder)
+    axes.set_aspect(1)
+    axes.add_artist(poly)
+    incrementOrder()
+
+
+def addSegmentList(axes, segments: List[Segment2D], color=(0, 0, 0), width=1, style='-'):
+    for segment in segments:
+        addLine(axes, segment.start, segment.end, color, width, style)
+
+
+def addCanvas(axes, canvas: Canvas2D, drawCells: bool = True, drawNeighbours: bool = False):
+    pointColor = (0.8, 0.8, 0.8)
+    neighbourColor = (0.8, 0.6, 0.6)
+    for point in canvas.Seeds:
+        if drawNeighbours:
+            neighbours = canvas.getNeighboursOfSeed(point)
+            for n in neighbours:
+                addLine(axes, point, n, neighbourColor, style='--')
+
+        addCircle(axes, point, 0.005, pointColor)
+
+    if drawCells:
+        for s in canvas.voronoiSegments:
+            addLine(axes, s.start, s.end, pointColor)
 
 
 def createColoringSchemeForAreaLayout(layout: AreaLayout) -> Dict:
@@ -64,39 +116,67 @@ def createColoringSchemeForAreaLayout(layout: AreaLayout) -> Dict:
     return scheme
 
 
-def addLayoutGraph(axes, layout: AreaLayout, embedding):
+def addAreaLayoutGraph(axes, layout: AreaLayout, embedding):
     color = (0.5, 0.5, 1)
     for edge in layout.neighbourhoods:
         addLine(axes, embedding[edge[0]], embedding[edge[1]], color, 2)
 
     for area in layout.areas:
         addCircle(axes, embedding[area], 0.02, color)
+
+    for area in layout.areas:
         addText(axes, embedding[area], area, (0, 0, 0))
 
 
-def addAreaSkeletons(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
+def addAreaSkeleton(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
+    for seg in skeleton.segments:
+        addLine(axes, seg.start, seg.end, color, 3)
+
     addCircle(axes, skeleton.root, 0.03, color)
 
+
+def addAreaSkeletonsText(axes, skeleton: AreaSkeleton):
     textColor = (0, 0, 0)
     addText(axes, skeleton.root, skeleton.areaName, textColor)
-
-    for seg in skeleton.segments:
-        addLine(axes, seg.start, seg.end, color, 6)
 
 
 def addAreaSkeletonsList(axes, skeletons: List[AreaSkeleton], coloring: Dict):
     for skeleton in skeletons:
-        addAreaSkeletons(axes, skeleton, coloring[skeleton.areaName])
+        addAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
+
+    for skeleton in skeletons:
+        addAreaSkeletonsText(axes, skeleton)
 
 
-def addAreaPartition(axes, partition: AreaPartition, color=(1, 0, 0)):
-    for p in partition.partitionPoints:
-        addCircle(axes, p, 0.01, color)
+def addAreaPartition(axes, partition: AreaPartition,
+                     color=(1, 0, 0),
+                     drawSeeds: bool = False,
+                     drawCells: bool = False):
+    bColor = BrightenColor(color, 0.5)
+
+    for poly in partition.cells:
+        addOutlinePolygon(axes, poly, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1))
+    addSegmentList(axes, partition.superCellSegments, (0.75, 0.75, 0.75), width=2)
+
+    if drawCells:
+        for poly in partition.cells:
+            addOutlinePolygon(axes, poly, color, bColor)
+
+    if drawSeeds:
+        for seed in partition.seeds:
+            addCircle(axes, seed, 0.01, color)
 
 
-def addAreaPartitionDict(axes, partitions: Dict[str, AreaPartition], coloring: Dict):
+def addAreaPartitionDict(axes,
+                         partitions: Dict[str, AreaPartition],
+                         coloring: Dict,
+                         drawSeeds: bool = True,
+                         drawCells: bool = True):
     for area in partitions.keys():
-        addAreaPartition(axes, partitions[area], BrightenColor(coloring[area]))
+        addAreaPartition(axes,
+                         partitions[area],
+                         coloring[area],
+                         drawSeeds, drawCells)
 
 
 def showMapPlot(title: string):

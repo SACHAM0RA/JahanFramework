@@ -41,7 +41,7 @@ class AreaLayout:
         return self.__neighbourhoods.copy()
 
     def getNeighbours(self, area: string) -> List:
-        return self.__graph.neighbors(area)
+        return list(self.__graph.neighbors(area))
 
     @property
     def networkxGraph(self):
@@ -81,19 +81,43 @@ class AreaSkeleton:
 
 class AreaPartition:
     __areaName: string
-    __canvasPoints: List = []
+    __canvasSeeds: List = []
+    __canvasCells: List = []
 
     def __init__(self, areaName: string):
         self.__areaName = areaName
-        self.__canvasPoints = []
+        self.__canvasSeeds = []
+        self.__canvasCells = []
 
-    def addPoint(self, p: Vector2D):
-        self.__canvasPoints.append(p)
+    def addCell(self, seed: Vector2D, cell: List[Vector2D]):
+        self.__canvasSeeds.append(seed)
+        self.__canvasCells.append(cell)
+
+    def removeCell(self, seed: Vector2D):
+        index = self.__canvasSeeds.index(seed)
+        self.__canvasSeeds.remove(seed)
+        self.__canvasCells.remove(self.__canvasCells[index])
 
     @property
     def areaName(self):
         return self.__areaName
 
     @property
-    def partitionPoints(self):
-        return self.__canvasPoints.copy()
+    def seeds(self):
+        return self.__canvasSeeds.copy()
+
+    @property
+    def cells(self):
+        return self.__canvasCells.copy()
+
+    @property
+    def superCellSegments(self):
+        cells = self.cells
+        segments = []
+        for cell in cells:
+            size = len(cell)
+            for i in range(size):
+                segment = Segment2D(cell[i % size], cell[(i + 1) % size])
+                segments.append(segment)
+
+        return list(filter(lambda s: segments.count(s) == 1, segments))

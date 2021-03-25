@@ -1,5 +1,9 @@
+import itertools
 import math
+from collections import defaultdict
 from types import FunctionType
+from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
+import numpy as np
 
 
 class Vector2D:
@@ -63,6 +67,14 @@ class Vector2D:
     def normal(self):
         return self * (1 / self.length)
 
+    @property
+    def asList(self):
+        return [self.X, self.Y]
+
+
+def Vector2D_fromList(values):
+    return Vector2D(values[0], values[1])
+
 
 # ======================================================================================================================
 
@@ -79,7 +91,8 @@ class Segment2D:
 
     def __eq__(self, other):
         if isinstance(other, Segment2D):
-            return self.start == other.start and self.end == other.end
+            return (self.start == other.start and self.end == other.end) or \
+                   (self.start == other.end and self.end == other.start)
         else:
             return NotImplemented
 
@@ -132,26 +145,174 @@ class Segment2D:
             return min(distanceFunction(v, self.start), distanceFunction(v, self.end))
 
 
+def Segment2D_fromLists(a: list, b: list):
+    start = Vector2D_fromList(a)
+    end = Vector2D_fromList(b)
+    return Segment2D(start, end)
+
+
 # ======================================================================================================================
 
+def voronoi_finite_polygons_2d(vor, radius=None):
+    """
+    Reconstruct infinite voronoi regions in a 2D diagram to finite
+    regions.
+
+    Parameters
+    ----------
+    vor : Voronoi
+        Input diagram
+    radius : float, optional
+        Distance to 'points at infinity'.
+
+    Returns
+    -------
+    regions : list of tuples
+        Indices of vertices in each revised Voronoi regions.
+    vertices : list of tuples
+        Coordinates for revised Voronoi vertices. Same as coordinates
+        of input vertices, with 'points at infinity' appended to the
+        end.
+
+    """
+
+    if vor.points.shape[1] != 2:
+        raise ValueError("Requires 2D input")
+
+    new_regions = []
+    new_vertices = vor.vertices.tolist()
+
+    center = vor.points.mean(axis=0)
+    if radius is None:
+        radius = vor.points.ptp().max()
+
+    # Construct a map containing all ridges for a given point
+    all_ridges = {}
+    for (p1, p2), (v1, v2) in zip(vor.ridge_points, vor.ridge_vertices):
+        all_ridges.setdefault(p1, []).append((p2, v1, v2))
+        all_ridges.setdefault(p2, []).append((p1, v1, v2))
+
+    # Reconstruct infinite regions
+    for p1, region in enumerate(vor.point_region):
+        vertices = vor.regions[region]
+
+        if all(v >= 0 for v in vertices):
+            # finite region
+            new_regions.append(vertices)
+            continue
+
+        # reconstruct a non-finite region
+        ridges = all_ridges[p1]
+        new_region = [v for v in vertices if v >= 0]
+
+        for p2, v1, v2 in ridges:
+            if v2 < 0:
+                v1, v2 = v2, v1
+            if v1 >= 0:
+                # finite ridge: already in the region
+                continue
+
+            # Compute the missing endpoint of an infinite ridge
+
+            t = vor.points[p2] - vor.points[p1]  # tangent
+            t /= np.linalg.norm(t)
+            n = np.array([-t[1], t[0]])  # normal
+
+            midpoint = vor.points[[p1, p2]].mean(axis=0)
+            direction = np.sign(np.dot(midpoint - center, n)) * n
+            far_point = vor.vertices[v2] + direction * radius
+
+            new_region.append(len(new_vertices))
+            new_vertices.append(far_point.tolist())
+
+        # sort region counterclockwise
+        vs = np.asarray([new_vertices[v] for v in new_region])
+        c = vs.mean(axis=0)
+        angles = np.arctan2(vs[:, 1] - c[1], vs[:, 0] - c[0])
+        new_region = np.array(new_region)[np.argsort(angles)]
+
+        # finish
+        new_regions.append(new_region.tolist())
+
+    return new_regions, np.asarray(new_vertices)
+
+
 class Canvas2D:
-    points: list = []
+    __seeds: list = []
+    __neighbours: dict = {}
+    __voronoi_vertices = None
+    __voronoi_regions = None
 
     def __init__(self, pointList):
-        self.points = pointList
+        self.__seeds = pointList
+
+        pointsAsList = list(map(lambda p: p.asList, self.__seeds))
+
+        self.__neighbours = defaultdict(set)
+        tri = Delaunay(pointsAsList, qhull_options="Qw Qt Qj")
+        for p in tri.vertices:
+            for i, j in itertools.combinations(p, 2):
+                self.__neighbours[i].add(j)
+                self.__neighbours[j].add(i)
+
+        regions, vertices = voronoi_finite_polygons_2d(Voronoi(pointsAsList))
+        self.__voronoi_regions = regions
+        self.__voronoi_vertices = vertices
 
     def __len__(self):
-        return len(self.points)
+        return len(self.__seeds)
 
     def findNearestPoint(self, v: Vector2D, distanceFunction: FunctionType) -> Vector2D:
-        distances = list(map(distanceFunction, [v] * self.size, self.points))
+        distances = list(map(distanceFunction, [v] * self.size, self.__seeds))
         min_index = distances.index(min(distances))
-        return self.points[min_index]
+        return self.__seeds[min_index]
 
     @property
     def isEmpty(self) -> bool:
-        return len(self.points) == 0
+        return len(self.__seeds) == 0
 
     @property
     def size(self) -> int:
         return len(self)
+
+    @property
+    def Seeds(self):
+        return self.__seeds.copy()
+
+    @property
+    def pointsAsList(self):
+        return list(map(lambda p: p.asList, self.__seeds))
+
+    @property
+    def voronoiPolygons(self) -> list:
+        polygons = []
+        for region in self.__voronoi_regions:
+            polygon = self.__voronoi_vertices[region]
+            convertedPoly = list(map(lambda p: Vector2D_fromList(p), polygon))
+            polygons.append(convertedPoly)
+        return polygons
+
+    @property
+    def voronoiSegments(self) -> list:
+        segments = []
+
+        polygons = self.voronoiPolygons
+        for poly in polygons:
+            polyLength = len(poly)
+            for i in range(polyLength + 1):
+                segment = Segment2D(poly[i % polyLength],
+                                    poly[(i + 1) % polyLength])
+                segments.append(segment)
+        return segments
+
+    def getPolygonOfSeed(self, seed: Vector2D) -> list:
+        index = self.__seeds.index(seed)
+        return self.voronoiPolygons[index]
+
+    def getNeighboursOfSeed(self, v: Vector2D) -> list:
+        index = self.__seeds.index(v)
+        ret_indices = self.__neighbours[index]
+        return list(map(lambda i: self.__seeds[i], ret_indices))
+
+    def getNeighboursOfSeedIndex(self, seedIndex) -> list:
+        return list(self.__neighbours[seedIndex])
