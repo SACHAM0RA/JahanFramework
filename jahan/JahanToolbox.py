@@ -1,9 +1,9 @@
-import math
 from typing import Dict
 from jahan.AreaClasses import *
 from random import random, uniform
-
+from jahan.MapClasses import *
 from jahan.VectorArithmetic import Canvas2D, Vector2D
+import multiprocessing
 
 
 def manhattanDistance(a: Vector2D, b: Vector2D) -> float:
@@ -15,7 +15,7 @@ def euclideanDistance(a: Vector2D, b: Vector2D) -> float:
     return (a - b).length
 
 
-def infinityNormDistance(a: Vector2D, b: Vector2D) -> float:
+def infNormDistance(a: Vector2D, b: Vector2D) -> float:
     d = a - b
     return max(math.fabs(d.X), math.fabs(d.Y))
 
@@ -98,7 +98,7 @@ def defaultPlanarEmbedding(layout: AreaLayout,
         raise Exception("Given 'layout' is not planar.")
     else:
         pos = nx.planar_layout(G, scale=len(layout) * 3)
-        pos = nx.spring_layout(G,pos=pos,iterations=Iteration)
+        pos = nx.spring_layout(G, pos=pos, iterations=Iteration)
 
         embedding: Dict[string, Vector2D] = {}
         for area in layout.areas:
@@ -136,8 +136,9 @@ def generateAreaSkeletonsFromHalfEdges(layout: AreaLayout, embedding) -> List[Ar
 def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
                                    layout: AreaLayout,
                                    skeletons: List[AreaSkeleton],
-                                   distanceFunction: FunctionType) -> Dict[str, AreaPartition]:
+                                   distanceFunction: FunctionType) -> (Dict[str, AreaPartition], AreaPartition):
     partitions: Dict[str, AreaPartition] = {}
+    emptyPartition: AreaPartition = AreaPartition("EMPTY")
     for s in skeletons:
         partitions[s.areaName] = AreaPartition(s.areaName)
 
@@ -149,6 +150,8 @@ def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
             skeleton_index = distances.index(minDist)
             areaName = skeletons[skeleton_index].areaName
             partitions[areaName].addCell(seed, canvas.getPolygonOfSeed(seed))
+        else:
+            emptyPartition.addCell(seed, canvas.getPolygonOfSeed(seed))
 
     def isSeedInOtherPartitions(seedToCheck: Vector2D, areasToIgnore: list):
         for a in partitions.keys():
@@ -169,5 +172,231 @@ def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
 
             if badCell:
                 postProcessedPartitions[area].removeCell(seed)
+                emptyPartition.addCell(seed, canvas.getPolygonOfSeed(seed))
 
-    return postProcessedPartitions
+    return postProcessedPartitions, emptyPartition
+
+
+# ==== generateInfluenceMapFromAreaPartitions ==========================================================================
+
+def findContainingAreaForPixel(pixelIndex: int, w: int, h: int, parts):
+    container = "EMPTY"
+    p = Vector2D(pixelIndex / w, pixelIndex % h)
+    for areaName in parts.keys():
+        if parts[areaName].containsPoint(p):
+            container = areaName
+            break
+    return container
+
+
+class callableFindContainingAreaForPixel(object):
+    def __init__(self, w: int, h: int, parts):
+        self.w = w
+        self.h = h
+        self.parts = parts
+
+    def __call__(self, index):
+        return findContainingAreaForPixel(index, self.w, self.h, self.parts)
+
+
+# ===========================================
+# Climate from climate assignments to areas
+# ===========================================
+
+def calculateClimateScoreForPixelFromAssignments(pixelIndex: int,
+                                                 climateName: string,
+                                                 w: int,
+                                                 h: int,
+                                                 partitions: dict,
+                                                 areaOfPixels: list,
+                                                 climates: dict,
+                                                 climateAssignments: dict):
+    areaOfPixel = areaOfPixels[pixelIndex]
+    pixel = Vector2D(pixelIndex / w, pixelIndex % h)
+    fadeRadius = climates[climateName].influenceFadeRadius * min(w, h)
+
+    if areaOfPixel in partitions.keys():
+        if climateAssignments[areaOfPixel] == climateName:
+            return 1.0
+        else:
+            closestDist = math.inf
+            for areaName in partitions.keys():
+                dist = partitions[areaName].findDistanceToPoint(pixel)
+                if climateAssignments[areaName] == climateName and dist < closestDist:
+                    closestDist = dist
+            return 1.0 - min(closestDist, fadeRadius) / fadeRadius
+    else:
+        return 0
+
+
+class callableCalculateClimateScoreForPixelFromAssignments(object):
+    def __init__(self,
+                 climateName: string,
+                 w: int, h: int,
+                 parts, areaOfPixels,
+                 climates: dict,
+                 climateAssignments: Dict):
+        self.climateName = climateName
+        self.w = w
+        self.h = h
+        self.parts = parts
+        self.areaOfPixels = areaOfPixels
+        self.climates = climates
+        self.climateAssignments = climateAssignments
+
+    def __call__(self, index):
+        return calculateClimateScoreForPixelFromAssignments(index,
+                                                            self.climateName,
+                                                            self.w, self.h,
+                                                            self.parts,
+                                                            self.areaOfPixels,
+                                                            self.climates,
+                                                            self.climateAssignments)
+
+
+def generateClimateInfluenceMapsFromAreaPartitions(mapWidth: int,
+                                                   mapHeight: int,
+                                                   partitions: dict,
+                                                   climates: dict,
+                                                   climateAssignments: dict) -> Dict:
+    # scaling partitions to fit the map size
+    maps: Dict[string, GridMap] = {}
+    scaledPartitions = copy.deepcopy(partitions)
+    for area in scaledPartitions.keys():
+        scaledPartitions[area].scalePartition(mapWidth, mapHeight)
+
+    # finding area of each pixel
+    pool = multiprocessing.Pool(processes=4)
+    areaOfPixels = list(pool.map(callableFindContainingAreaForPixel(mapWidth, mapHeight, scaledPartitions),
+                                 range(mapWidth * mapHeight)))
+
+    climateNames = list(climates.keys())
+    for climateName in climateNames:
+        influence = list(pool.map(callableCalculateClimateScoreForPixelFromAssignments(climateName,
+                                                                                       mapWidth,
+                                                                                       mapHeight,
+                                                                                       scaledPartitions,
+                                                                                       areaOfPixels,
+                                                                                       climates,
+                                                                                       climateAssignments),
+                                  range(mapWidth * mapHeight)))
+        maps[climateName] = GridMap(mapWidth, mapHeight)
+        maps[climateName].importValues(influence)
+
+    for col, row in itertools.product(range(mapWidth), range(mapHeight)):
+        infSum = 0.0
+        for climateName in climates.keys():
+            inf = maps[climateName].getValue(row, col)
+            infSum = infSum + inf
+
+        if infSum != 0.0:
+            for climateName in climates.keys():
+                rawInf = maps[climateName].getValue(row, col)
+                maps[climateName].setValue(row, col, rawInf / infSum)
+
+    return maps
+
+
+# ===========================================
+# Surface and Vegetation
+# ===========================================
+
+def calcSurfaceTotalInfluence(surface: string, row: int, col: int, climateMaps: dict, climates: dict):
+    totalInfluence = 0.0
+    for climateName in climateMaps.keys():
+        if climates[climateName].surfaceType == surface:
+            inf = climateMaps[climateName].getValue(row, col)
+            totalInfluence = totalInfluence + inf
+
+    return totalInfluence
+
+
+def generateSurfaceMaps(climateMaps: Dict, climates: Dict) -> dict:
+    maps: dict = {}
+    w = (list(climateMaps.values()))[0].width
+    h = (list(climateMaps.values()))[0].height
+
+    surfaces = [c.surfaceType for c in climates.values()]
+
+    for surface in surfaces:
+        m = [calcSurfaceTotalInfluence(surface, row, col, climateMaps, climates) for row, col in
+             itertools.product(range(h), range(w))]
+        maps[surface] = GridMap(w, h)
+        maps[surface].importValues(m)
+
+    return maps
+
+
+def calcVegetationProbability(row: int, col: int, climateMaps: Dict, climates: Dict):
+    probability = 0.0
+    for climateName in climateMaps.keys():
+        inf = climateMaps[climateName].getValue(row, col)
+        probability = probability + climates[climateName].vegetationProbability * inf
+
+    return probability
+
+
+def generateVegetationProbabilityMap(climateMaps: Dict, climates: Dict) -> GridMap:
+    w = (list(climateMaps.values()))[0].width
+    h = (list(climateMaps.values()))[0].height
+    probabilities = [calcVegetationProbability(row, col, climateMaps, climates) for row, col in
+                     itertools.product(range(h), range(w))]
+    finalMap = GridMap(w, h)
+    finalMap.importValues(probabilities)
+    return finalMap
+
+
+def calcVegetationTypeWeight(vegType: string, row: int, col: int, climateMaps: Dict, climates: Dict):
+    totalWeight = 0.0
+    for climateName in climateMaps.keys():
+        inf = climateMaps[climateName].getValue(row, col)
+        totalWeight = totalWeight + climates[climateName].getVegetationWeight(vegType) * inf
+
+    return totalWeight
+
+
+def generateVegetationTypeMaps(climateMaps: Dict, climates: Dict) -> dict:
+    maps: dict = {}
+    w = (list(climateMaps.values()))[0].width
+    h = (list(climateMaps.values()))[0].height
+
+    vegTypes: set = set()
+    for climateName in climates.keys():
+        for vegType in climates[climateName].vegetationTypes.keys():
+            vegTypes.add(vegType)
+
+    for vegType in vegTypes:
+        m = [calcVegetationTypeWeight(vegType, row, col, climateMaps, climates) for row, col in
+             itertools.product(range(h), range(w))]
+        maps[vegType] = GridMap(w, h)
+        maps[vegType].importValues(m)
+
+    return normalizeMaps(maps)
+
+
+def assignVegetation(row: int, col: int, vegTypeMaps: dict, vegetationProbability: GridMap):
+    chance = vegetationProbability.getValue(row, col)
+    r = random()
+    if r < chance:
+        typeRand = random()
+        for vegType in vegTypeMaps.keys():
+            typeChance = vegTypeMaps[vegType].getValue(row, col)
+            if typeRand < typeChance:
+                return row, col, vegType
+            else:
+                typeRand = typeRand - typeChance
+    else:
+        return row, col, None
+
+
+def generateVegetationLocations(vegTypeMaps: dict, vegetationProbability: GridMap) -> dict:
+    w = (list(vegTypeMaps.values()))[0].width
+    h = (list(vegTypeMaps.values()))[0].height
+
+    locations: dict = {}
+    assignments = [assignVegetation(row, col, vegTypeMaps, vegetationProbability) for row, col in
+                   itertools.product(range(h), range(w))]
+
+    for vegType in vegTypeMaps.keys():
+        locations[vegType] = [[assign[0], assign[1]] for assign in assignments if assign[2] == vegType]
+    return locations

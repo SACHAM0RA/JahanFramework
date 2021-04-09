@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from typing import Dict
 from jahan.AreaClasses import *
+from jahan.MapClasses import *
 
 palette = \
     [
@@ -116,19 +117,21 @@ def createColoringSchemeForAreaLayout(layout: AreaLayout) -> Dict:
     return scheme
 
 
-def addAreaLayoutGraph(axes, layout: AreaLayout, embedding):
-    color = (0.5, 0.5, 1)
-    for edge in layout.neighbourhoods:
-        addLine(axes, embedding[edge[0]], embedding[edge[1]], color, 2)
+def addAreaLayoutGraph(axes, layout: AreaLayout, embedding, drawNeighbourhoods: bool = True):
+    color = (0, 0, 0, 1)
+
+    if drawNeighbourhoods:
+        for edge in layout.neighbourhoods:
+            addLine(axes, embedding[edge[0]], embedding[edge[1]], color, 2)
 
     for area in layout.areas:
-        addCircle(axes, embedding[area], 0.02, color)
+        addCircle(axes, embedding[area], 0.03, color)
 
     for area in layout.areas:
-        addText(axes, embedding[area], area, (0, 0, 0))
+        addText(axes, embedding[area], area, (1, 1, 1))
 
 
-def addAreaSkeleton(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
+def addSingleAreaSkeleton(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
     for seg in skeleton.segments:
         addLine(axes, seg.start, seg.end, color, 3)
 
@@ -140,9 +143,9 @@ def addAreaSkeletonsText(axes, skeleton: AreaSkeleton):
     addText(axes, skeleton.root, skeleton.areaName, textColor)
 
 
-def addAreaSkeletonsList(axes, skeletons: List[AreaSkeleton], coloring: Dict):
+def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: Dict):
     for skeleton in skeletons:
-        addAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
+        addSingleAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
 
     for skeleton in skeletons:
         addAreaSkeletonsText(axes, skeleton)
@@ -154,9 +157,8 @@ def addAreaPartition(axes, partition: AreaPartition,
                      drawCells: bool = False):
     bColor = BrightenColor(color, 0.5)
 
-    for poly in partition.cells:
-        addOutlinePolygon(axes, poly, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1))
-    addSegmentList(axes, partition.superCellSegments, (0.75, 0.75, 0.75), width=2)
+    #addOutlinePolygon(axes, partition.superCellPoints, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1))
+    addSegmentList(axes, partition.superCellSegments, (0.1, 0.1, 0.1), width=2)
 
     if drawCells:
         for poly in partition.cells:
@@ -167,16 +169,69 @@ def addAreaPartition(axes, partition: AreaPartition,
             addCircle(axes, seed, 0.01, color)
 
 
-def addAreaPartitionDict(axes,
-                         partitions: Dict[str, AreaPartition],
-                         coloring: Dict,
-                         drawSeeds: bool = True,
-                         drawCells: bool = True):
+def addMultiAreaPartitions(axes,
+                           partitions: Dict[str, AreaPartition],
+                           coloring: Dict,
+                           drawSeeds: bool = True,
+                           drawCells: bool = True):
     for area in partitions.keys():
         addAreaPartition(axes,
                          partitions[area],
                          coloring[area],
                          drawSeeds, drawCells)
+
+
+def addSingleMap(axes, influenceMap: GridMap, colorMap):
+    image = plt.imshow(influenceMap.asListOfListsForImShow,
+                       aspect='auto',
+                       extent=[0, 1, 0, 1],
+                       cmap=colorMap)
+    axes.set_aspect(1)
+    axes.add_artist(image)
+    incrementOrder()
+
+
+def calcInfluenceColor(row: int, col: int, influenceMap: Dict, coloring: Dict):
+    r = 0.0
+    g = 0.0
+    b = 0.0
+
+    for area in coloring.keys():
+        inf = influenceMap[area].getValue(row, col)
+        r = r + coloring[area][0] * inf
+        g = g + coloring[area][1] * inf
+        b = b + coloring[area][2] * inf
+
+    return r, g, b
+
+
+def AddMultipleMaps(axes, influenceMap: Dict, coloring: Dict):
+    colors = []
+    w = (list(influenceMap.values()))[0].width
+    h = (list(influenceMap.values()))[0].height
+    for row in range(h):
+        colors.append([])
+        for col in range(w):
+            colors[row].append(calcInfluenceColor(col, h - row - 1, influenceMap, coloring))
+
+    image = plt.imshow(colors,
+                       aspect='auto',
+                       extent=[0, 1, 0, 1])
+    axes.set_aspect(1)
+    axes.add_artist(image)
+    incrementOrder()
+
+
+def addSingleLocationList(axes, locations: list, color, w: float, h: float):
+    for loc in locations:
+        loc[0] = loc[0] / h
+        loc[1] = loc[1] / w
+        addCircle(axes, Vector2D_fromList(loc), 0.002, color)
+
+
+def addDictionaryOfLocations(axes, locationLists: dict, coloring, w: float, h: float):
+    for k in locationLists.keys():
+        addSingleLocationList(axes, locationLists[k], coloring[k], w, h)
 
 
 def showMapPlot(title: string):

@@ -7,15 +7,13 @@ import numpy as np
 
 
 class Vector2D:
-    X: float = 0
-    Y: float = 0
 
     def __init__(self, x, y):
-        self.X = x
-        self.Y = y
+        self.X: float = x
+        self.Y: float = y
 
     def __key(self):
-        return (self.X, self.Y)
+        return self.X, self.Y
 
     def __str__(self):
         return "[{X},{Y}]".format(X=self.X, Y=self.Y)
@@ -41,13 +39,17 @@ class Vector2D:
         return self.__copy__()
 
     def __add__(self, other):
-        return Vector2D(self.X + other.X, self.Y + other.Y)
+        if isinstance(other, Vector2D):
+            return Vector2D(self.X + other.X, self.Y + other.Y)
 
     def __sub__(self, other):
         return Vector2D(self.X - other.X, self.Y - other.Y)
 
     def __mul__(self, other):
-        return Vector2D(self.X * other, self.Y * other)
+        if isinstance(other, Vector2D):
+            return Vector2D(self.X * other.X, self.Y * other.Y)
+        else:
+            return Vector2D(self.X * other, self.Y * other)
 
     def dot(self, other) -> float:
         return self.X * other.X + self.Y * other.Y
@@ -65,7 +67,7 @@ class Vector2D:
 
     @property
     def normal(self):
-        return self * (1 / self.length)
+        return Vector2D(self.X * (1 / self.length), self.Y * (1 / self.length))
 
     @property
     def asList(self):
@@ -87,7 +89,7 @@ class Segment2D:
         self.end = b
 
     def __key(self):
-        return (self.start, self.end)
+        return self.start, self.end
 
     def __eq__(self, other):
         if isinstance(other, Segment2D):
@@ -111,7 +113,7 @@ class Segment2D:
         return self.direction.length
 
     @property
-    def normal(self):
+    def normal(self) -> Vector2D:
         return self.direction.normal
 
     @property
@@ -143,6 +145,19 @@ class Segment2D:
             return distanceFunction(v, p)
         else:
             return min(distanceFunction(v, self.start), distanceFunction(v, self.end))
+
+    def continues(self, other) -> bool:
+        return self.start == other.end
+
+    def meets(self, other) -> bool:
+        return self.end == other.end
+
+    def reverse(self):
+        self.start, self.end = self.end, self.start
+
+    @property
+    def asList(self):
+        return [self.start.asList, self.end.asList]
 
 
 def Segment2D_fromLists(a: list, b: list):
@@ -246,7 +261,7 @@ class Canvas2D:
     def __init__(self, pointList):
         self.__seeds = pointList
 
-        pointsAsList = list(map(lambda p: p.asList, self.__seeds))
+        pointsAsList = [p.asList for p in self.__seeds]
 
         self.__neighbours = defaultdict(set)
         tri = Delaunay(pointsAsList, qhull_options="Qw Qt Qj")
@@ -281,14 +296,14 @@ class Canvas2D:
 
     @property
     def pointsAsList(self):
-        return list(map(lambda p: p.asList, self.__seeds))
+        return [p.asList for p in self.__seeds]
 
     @property
     def voronoiPolygons(self) -> list:
         polygons = []
         for region in self.__voronoi_regions:
             polygon = self.__voronoi_vertices[region]
-            convertedPoly = list(map(lambda p: Vector2D_fromList(p), polygon))
+            convertedPoly = [Vector2D_fromList(p) for p in polygon]
             polygons.append(convertedPoly)
         return polygons
 
@@ -311,8 +326,8 @@ class Canvas2D:
 
     def getNeighboursOfSeed(self, v: Vector2D) -> list:
         index = self.__seeds.index(v)
-        ret_indices = self.__neighbours[index]
-        return list(map(lambda i: self.__seeds[i], ret_indices))
+        neighbour_indices = list(self.__neighbours[index])
+        return [self.__seeds[i] for i in neighbour_indices]
 
     def getNeighboursOfSeedIndex(self, seedIndex) -> list:
         return list(self.__neighbours[seedIndex])
