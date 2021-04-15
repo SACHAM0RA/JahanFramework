@@ -177,81 +177,63 @@ def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
     return postProcessedPartitions, emptyPartition
 
 
-# ==== generateInfluenceMapFromAreaPartitions ==========================================================================
+# ===========================================
+# Finding the area of a pixel
+# ===========================================
 
-def findContainingAreaForPixel(pixelIndex: int, w: int, h: int, parts):
-    container = "EMPTY"
-    p = Vector2D(pixelIndex / w, pixelIndex % h)
-    for areaName in parts.keys():
-        if parts[areaName].containsPoint(p):
-            container = areaName
-            break
-    return container
-
-
-class callableFindContainingAreaForPixel(object):
-    def __init__(self, w: int, h: int, parts):
+class findContainingAreaForPixel(object):
+    def __init__(self, w: int, h: int, partitions):
         self.w = w
         self.h = h
-        self.parts = parts
+        self.partitions = partitions
 
-    def __call__(self, index):
-        return findContainingAreaForPixel(index, self.w, self.h, self.parts)
+    def __call__(self, pixelIndex):
+        container = "EMPTY"
+        p = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
+        for areaName in self.partitions.keys():
+            if self.partitions[areaName].containsPoint(p):
+                container = areaName
+                break
+        return container
 
 
 # ===========================================
 # Climate from climate assignments to areas
 # ===========================================
 
-def calculateClimateScoreForPixelFromAssignments(pixelIndex: int,
-                                                 climateName: string,
-                                                 w: int,
-                                                 h: int,
-                                                 partitions: dict,
-                                                 areaOfPixels: list,
-                                                 climates: dict,
-                                                 climateAssignments: dict):
-    areaOfPixel = areaOfPixels[pixelIndex]
-    pixel = Vector2D(pixelIndex / w, pixelIndex % h)
-    fadeRadius = climates[climateName].influenceFadeRadius * min(w, h)
-
-    if areaOfPixel in partitions.keys():
-        if climateAssignments[areaOfPixel] == climateName:
-            return 1.0
-        else:
-            closestDist = math.inf
-            for areaName in partitions.keys():
-                dist = partitions[areaName].findDistanceToPoint(pixel)
-                if climateAssignments[areaName] == climateName and dist < closestDist:
-                    closestDist = dist
-            return 1.0 - min(closestDist, fadeRadius) / fadeRadius
-    else:
-        return 0
-
-
-class callableCalculateClimateScoreForPixelFromAssignments(object):
+class calcClimateInfluenceOnPixelFromAssignments(object):
     def __init__(self,
                  climateName: string,
                  w: int, h: int,
-                 parts, areaOfPixels,
+                 partitions,
+                 areaOfPixels,
                  climates: dict,
                  climateAssignments: Dict):
         self.climateName = climateName
         self.w = w
         self.h = h
-        self.parts = parts
+        self.partitions = partitions
         self.areaOfPixels = areaOfPixels
         self.climates = climates
         self.climateAssignments = climateAssignments
 
-    def __call__(self, index):
-        return calculateClimateScoreForPixelFromAssignments(index,
-                                                            self.climateName,
-                                                            self.w, self.h,
-                                                            self.parts,
-                                                            self.areaOfPixels,
-                                                            self.climates,
-                                                            self.climateAssignments)
+    def __call__(self, pixelIndex):
+        areaOfPixel = self.areaOfPixels[pixelIndex]
+        pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
+        fadeRadius = self.climates[self.climateName].influenceFadeRadius * min(self.w, self.h)
+
+        if areaOfPixel in self.partitions.keys():
+            if self.climateAssignments[areaOfPixel] == self.climateName:
+                return 1.0
+            else:
+                closestDist = math.inf
+                for areaName in self.partitions.keys():
+                    dist = self.partitions[areaName].findDistanceToPoint(pixel)
+                    if self.climateAssignments[areaName] == self.climateName and dist < closestDist:
+                        closestDist = dist
+                return 1.0 - min(closestDist, fadeRadius) / fadeRadius
+        else:
+            return 0
 
 
 def generateClimateInfluenceMapsFromAreaPartitions(mapWidth: int,
@@ -267,18 +249,18 @@ def generateClimateInfluenceMapsFromAreaPartitions(mapWidth: int,
 
     # finding area of each pixel
     pool = multiprocessing.Pool(processes=4)
-    areaOfPixels = list(pool.map(callableFindContainingAreaForPixel(mapWidth, mapHeight, scaledPartitions),
+    areaOfPixels = list(pool.map(findContainingAreaForPixel(mapWidth, mapHeight, scaledPartitions),
                                  range(mapWidth * mapHeight)))
 
     climateNames = list(climates.keys())
     for climateName in climateNames:
-        influence = list(pool.map(callableCalculateClimateScoreForPixelFromAssignments(climateName,
-                                                                                       mapWidth,
-                                                                                       mapHeight,
-                                                                                       scaledPartitions,
-                                                                                       areaOfPixels,
-                                                                                       climates,
-                                                                                       climateAssignments),
+        influence = list(pool.map(calcClimateInfluenceOnPixelFromAssignments(climateName,
+                                                                             mapWidth,
+                                                                             mapHeight,
+                                                                             scaledPartitions,
+                                                                             areaOfPixels,
+                                                                             climates,
+                                                                             climateAssignments),
                                   range(mapWidth * mapHeight)))
         maps[climateName] = GridMap(mapWidth, mapHeight)
         maps[climateName].importValues(influence)
@@ -400,3 +382,128 @@ def generateVegetationLocations(vegTypeMaps: dict, vegetationProbability: GridMa
     for vegType in vegTypeMaps.keys():
         locations[vegType] = [[assign[0], assign[1]] for assign in assignments if assign[2] == vegType]
     return locations
+
+
+# ===========================================
+# Height Maps
+# ===========================================
+
+class HeightMapGenerationMethod:
+    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+        return GridMap(mapWidth, mapHeight)
+
+
+class HeightMapFromFlatValue(HeightMapGenerationMethod):
+    def __init__(self, flatHeight: float):
+        self.__H = flatHeight
+
+    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+        heightMap = GridMap(mapWidth, mapHeight)
+        heightMap.importValues([self.__H] * mapWidth * mapHeight)
+        return heightMap
+
+
+class getSignedDistanceOfPixelToAreaPartition:
+    def __init__(self, mapWidth: int, mapHeight: int, partition: AreaPartition):
+        self.partition = partition
+        self.w = mapWidth
+        self.h = mapHeight
+
+    def __call__(self, pixelIndex: int):
+        pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
+        absDist = self.partition.findDistanceToPoint(pixel)
+        if self.partition.containsPoint(pixel):
+            return -1 * absDist
+        else:
+            return absDist
+
+
+class HeightMapFromSDF(HeightMapGenerationMethod):
+    def __init__(self, ascending: bool, minHeight: float, maxHeight: float):
+        self.__ascending = ascending
+        self.__minH = min(minHeight, maxHeight)
+        self.__maxH = max(minHeight, maxHeight)
+
+    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+        pool = multiprocessing.Pool(processes=4)
+        pixelDistanceValues = list(
+            pool.map(getSignedDistanceOfPixelToAreaPartition(mapWidth, mapHeight, partition),
+                     range(mapWidth * mapHeight)))
+
+        minDist = abs(min(pixelDistanceValues))
+        pixelDistanceValues = [d / minDist for d in pixelDistanceValues]
+        diffH = self.__maxH - self.__minH
+        if self.__ascending:
+            pixelDistanceValues = [self.__minH - diffH * d for d in pixelDistanceValues]
+        else:
+            pixelDistanceValues = [self.__maxH + diffH * d for d in pixelDistanceValues]
+
+        heightMap = GridMap(mapWidth, mapHeight)
+        heightMap.importValues(pixelDistanceValues)
+        return heightMap
+
+
+class ElevationProfile:
+    def __init__(self, method: HeightMapGenerationMethod):
+        self.__method: HeightMapGenerationMethod = method
+
+    @property
+    def GenerationMethod(self):
+        return self.__method
+
+
+class calcPartitionInfluenceOnPixel(object):
+    def __init__(self, areaName: string, w: int, h: int, partition, areaOfPixels):
+        self.areaName = areaName
+        self.w = w
+        self.h = h
+        self.partition = partition
+        self.areaOfPixels = areaOfPixels
+
+    def __call__(self, pixelIndex):
+        areaOfPixel = self.areaOfPixels[pixelIndex]
+        pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
+        fadeRadius = 0.1 * min(self.w, self.h)
+
+        if areaOfPixel == self.areaName:
+            return 1.0
+        else:
+            dist = self.partition.findDistanceToPoint(pixel)
+            return 1.0 - min(dist, fadeRadius) / fadeRadius
+
+
+def generateAreaInfluenceMapFromPartitions(partitions: dict, mapWidth: int, mapHeight: int) -> dict:
+    maps: Dict[string, GridMap] = {}
+    areaNames = list(partitions.keys())
+    pool = multiprocessing.Pool(processes=4)
+
+    areaOfPixels = list(
+        pool.map(findContainingAreaForPixel(mapWidth, mapHeight, partitions), range(mapWidth * mapHeight)))
+
+    for areaName in areaNames:
+        influence = list(pool.map(calcPartitionInfluenceOnPixel(areaName,
+                                                                mapWidth,
+                                                                mapHeight,
+                                                                partitions[areaName],
+                                                                areaOfPixels),
+                                  range(mapWidth * mapHeight)))
+        maps[areaName] = GridMap(mapWidth, mapHeight)
+        maps[areaName].importValues(influence)
+
+    maps = normalizeMaps(maps)
+    return maps
+
+
+def generateHeightMapFromElevationSettings(mapWidth: int, mapHeight: int, settings: dict, partitions: dict) -> GridMap:
+    partialHeightMaps: dict = {}
+
+    scaledPartitions = copy.deepcopy(partitions)
+    for area in scaledPartitions.keys():
+        scaledPartitions[area].scalePartition(mapWidth, mapHeight)
+
+    for area in partitions.keys():
+        partialHeightMaps[area] = settings[area].GenerationMethod(partitions[area], mapWidth, mapHeight)
+
+    influenceMaps = generateAreaInfluenceMapFromPartitions(partitions, mapWidth, mapHeight)
+
+    return GridMap(mapWidth, mapHeight)
