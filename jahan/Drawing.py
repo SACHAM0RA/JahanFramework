@@ -1,5 +1,6 @@
+import multiprocessing
+
 import matplotlib.pyplot as plt
-from typing import Dict
 from jahan.AreaClasses import *
 from jahan.MapClasses import *
 
@@ -157,7 +158,7 @@ def addAreaPartition(axes, partition: AreaPartition,
                      drawCells: bool = False):
     bColor = BrightenColor(color, 0.5)
 
-    #addOutlinePolygon(axes, partition.superCellPoints, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1))
+    # addOutlinePolygon(axes, partition.superCellPoints, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1))
     addSegmentList(axes, partition.superCellSegments, (0.1, 0.1, 0.1), width=2)
 
     if drawCells:
@@ -191,16 +192,16 @@ def addSingleMap(axes, influenceMap: GridMap, colorMap):
     incrementOrder()
 
 
-def calcInfluenceColor(row: int, col: int, influenceMap: Dict, coloring: Dict):
+def calcInfluenceColor(row: int, col: int, maps: Dict, coloring: Dict):
     r = 0.0
     g = 0.0
     b = 0.0
 
-    for area in coloring.keys():
-        inf = influenceMap[area].getValue(row, col)
-        r = r + coloring[area][0] * inf
-        g = g + coloring[area][1] * inf
-        b = b + coloring[area][2] * inf
+    for key in coloring.keys():
+        inf = maps[key].getValue(row, col)
+        r = r + coloring[key][0] * inf
+        g = g + coloring[key][1] * inf
+        b = b + coloring[key][2] * inf
 
     return r, g, b
 
@@ -234,8 +235,55 @@ def addDictionaryOfLocations(axes, locationLists: dict, coloring, w: float, h: f
         addSingleLocationList(axes, locationLists[k], coloring[k], w, h)
 
 
-def showMapPlot(title: string):
+def showMap(title: string):
     plt.ylim((0, 1))
     plt.xlim((0, 1))
     plt.title(title)
+    plt.show()
+
+
+def showHeightMap(m: GridMap):
+    fig = plt.figure(figsize=(8.0, 8.0), dpi=300)
+    ax = fig.add_subplot(projection='3d')
+    ax.view_init(45, 45)
+
+    # make the panes transparent
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+
+    # make the grid lines transparent
+    ax.xaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
+    ax.yaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
+    ax.zaxis._axinfo["grid"]['color'] = (1, 1, 1, 1)
+
+    x = range(m.width)
+    y = range(m.height)
+    X, Y = np.meshgrid(x, y)
+    heightValues = m.exportFor3DPlotting()
+    Z = np.array(heightValues)
+    Z = Z.reshape(m.height, m.width)
+
+    limits = max(m.width - 1, m.height - 1)
+    ax.set_xlim3d(0, limits)
+    ax.set_ylim3d(0, limits)
+    ax.set_zlim3d(0, limits)
+
+    minH = np.nanmin(heightValues)
+    maxH = np.nanmax(heightValues)
+
+    surface = ax.plot_surface(X, Y, Z,
+                              rstride=1,
+                              cstride=1,
+                              cmap='gist_earth',
+                              linewidth=0.0,
+                              antialiased=False, vmin=minH,
+                              vmax=maxH)
+
+    fig.colorbar(surface, shrink=0.5, orientation='horizontal', pad=0.05)
+
+    ax.contour(X, Y, Z,
+               colors=[(1, 1, 1, 0.35)],
+               linewidths=1)
+
     plt.show()

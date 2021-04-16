@@ -45,23 +45,30 @@ if __name__ == '__main__':
     # SPECIFICATION STEP 2 : ELEVATION SETTINGS
     # ==================================================================================================================
 
-    elevationProfile_1 = jtb.ElevationProfile(jtb.HeightMapFromFlatValue(flatHeight=0.0))
-    elevationProfile_2 = jtb.ElevationProfile(jtb.HeightMapFromFlatValue(flatHeight=20.0))
-    elevationProfile_3 = jtb.ElevationProfile(jtb.HeightMapFromSDF(ascending=True, minHeight=10.0, maxHeight=40))
-    elevationProfile_4 = jtb.ElevationProfile(jtb.HeightMapFromSDF(ascending=False, minHeight=0.0, maxHeight=25))
+    heightProfile_1 = jtb.HeightProfile(method=jtb.HeightMapFromFlatValue(flatHeight=0.0),
+                                        fadeRadius=0.1)
 
-    elevationSettings = {"A": elevationProfile_1,
-                         "B": elevationProfile_2,
-                         "C": elevationProfile_3,
-                         "D": elevationProfile_4,
-                         "E": elevationProfile_1,
-                         "F": elevationProfile_2,
-                         "G": elevationProfile_3,
-                         "H": elevationProfile_4,
-                         "I": elevationProfile_1,
-                         "J": elevationProfile_2,
-                         "K": elevationProfile_3,
-                         "L": elevationProfile_4}
+    heightProfile_2 = jtb.HeightProfile(method=jtb.HeightMapFromFlatValue(flatHeight=15.0),
+                                        fadeRadius=0.1)
+
+    heightProfile_3 = jtb.HeightProfile(method=jtb.HeightMapFromSDF(ascending=True, minHeight=10, maxHeight=30),
+                                        fadeRadius=0.1)
+
+    heightProfile_4 = jtb.HeightProfile(method=jtb.HeightMapFromSDF(ascending=False, minHeight=0, maxHeight=20),
+                                        fadeRadius=0.1)
+
+    elevationSettings = {"A": heightProfile_1,
+                         "B": heightProfile_2,
+                         "C": heightProfile_3,
+                         "D": heightProfile_4,
+                         "E": heightProfile_1,
+                         "F": heightProfile_2,
+                         "G": heightProfile_3,
+                         "H": heightProfile_4,
+                         "I": heightProfile_1,
+                         "J": heightProfile_2,
+                         "K": heightProfile_3,
+                         "L": heightProfile_4}
 
     # ==================================================================================================================
     # SPECIFICATION STEP 3 : CLIMATE DEFINITIONS
@@ -102,11 +109,11 @@ if __name__ == '__main__':
     # PIPELINE MODULE 3 : CANVAS GENERATION (DIFFERENT IMPLEMENTATIONS)
     # ==================================================================================================================
 
-    # canvas = jtb.squareGridCanvasGenerator(20, 20)
-    canvas = jtb.looseSquareGridCanvasGenerator(20, 20, 0.35)
-    # canvas = jtb.hexagonGridCanvasGenerator(20, 20)
-    # canvas = jtb.randomCanvasGenerator(400)
-    # canvas = jtb.circularCanvasGenerator(0.05, 100)
+    # canvas = jtb.squareGridCanvasGenerator(25, 25)
+    canvas = jtb.looseSquareGridCanvasGenerator(25, 25, 0.35)
+    # canvas = jtb.hexagonGridCanvasGenerator(25, 25)
+    # canvas = jtb.randomCanvasGenerator(500)
+    # canvas = jtb.circularCanvasGenerator(0.05, 150)
 
     # ==================================================================================================================
     # PIPELINE MODULE 4 : CANVAS PARTITIONING (DIFFERENT IMPLEMENTATIONS)
@@ -119,26 +126,25 @@ if __name__ == '__main__':
     # PIPELINE MODULE 5 : GENERATING HEIGHT MAPS (DIFFERENT IMPLEMENTATIONS)
     # ==================================================================================================================
 
-    #sdf = jtb.HeightMapFromSDF(ascending=True, minHeight=10.0, maxHeight=40)
-    #hMap = sdf(partitions["H"], 128, 128)
-    jtb.generateHeightMapFromElevationSettings(128, 128, elevationSettings, partitions)
+    heightMap = jtb.generateHeightMapFromElevationSettings(128, 128, elevationSettings, partitions)
+    # heightMap = jtb.generateAreaInfluenceMapFromPartitions(partitions, 128, 128)
 
     # ==================================================================================================================
     # PIPELINE MODULE 6 : GENERATING CLIMATE INFLUENCE MAPS
     # ==================================================================================================================
-    climateMaps = jtb.generateClimateInfluenceMapsFromAreaPartitions(128, 128, partitions, climates, climateAssignments)
+    #climateMaps = jtb.generateClimateInfluenceMapsFromAreaPartitions(128, 128, partitions, climates, climateAssignments)
 
     # ==================================================================================================================
     # PIPELINE MODULE 7 : GENERATING SURFACE MAPS
     # ==================================================================================================================
-    surfaceMaps = jtb.generateSurfaceMaps(climateMaps, climates)
+    #surfaceMaps = jtb.generateSurfaceMaps(climateMaps, climates)
 
     # ==================================================================================================================
     # PIPELINE MODULE 8 : VEGETATION PLACEMENT
     # ==================================================================================================================
-    vegetationProbabilityMap = jtb.generateVegetationProbabilityMap(climateMaps, climates)
-    vegetationTypeMaps = jtb.generateVegetationTypeMaps(climateMaps, climates)
-    vegetationLocations = jtb.generateVegetationLocations(vegetationTypeMaps, vegetationProbabilityMap)
+    #vegetationProbabilityMap = jtb.generateVegetationProbabilityMap(climateMaps, climates)
+    #vegetationTypeMaps = jtb.generateVegetationTypeMaps(climateMaps, climates)
+    #vegetationLocations = jtb.generateVegetationLocations(vegetationTypeMaps, vegetationProbabilityMap)
 
     # ==================================================================================================================
     # ============================================= DEBUG AND VISUALIZATION ============================================
@@ -151,11 +157,11 @@ if __name__ == '__main__':
     jDraw.addAreaLayoutGraph(axes, layout, embedding, drawNeighbourhoods=True)
     jDraw.addMultiAreaPartitions(axes, partitions, layoutColoring, drawSeeds=False, drawCells=False)
     # jDraw.addMultipleAreaSkeletons(axes, skeletons, layoutColoring)
-    # jDraw.AddMultipleMaps(axes, climateMaps, layoutColoring)
     # jDraw.addSingleMap(axes, vegetationProbabilityMap, 'Greens')
     # jDraw.addSingleMap(axes, climateMaps["climate_1"], 'Greys')
-    # jDraw.addSingleMap(axes, hMap, 'Greys')
+    jDraw.addSingleMap(axes, heightMap, 'Greys')
     # jDraw.AddMultipleMaps(axes, surfaceMaps, {"GRASS": (0, 0.5, 0), "MUD": (0.62, 0.32, 0.17)})
     # jDraw.AddMultipleMaps(axes, vegetationTypeMaps, vegetationColoring)
     # jDraw.addDictionaryOfLocations(axes, vegetationLocations, vegetationColoring, 128, 128)
-    jDraw.showMapPlot("PLOT")
+    jDraw.showMap("PLOT")
+    jDraw.showHeightMap(heightMap)

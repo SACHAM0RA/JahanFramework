@@ -265,17 +265,7 @@ def generateClimateInfluenceMapsFromAreaPartitions(mapWidth: int,
         maps[climateName] = GridMap(mapWidth, mapHeight)
         maps[climateName].importValues(influence)
 
-    for col, row in itertools.product(range(mapWidth), range(mapHeight)):
-        infSum = 0.0
-        for climateName in climates.keys():
-            inf = maps[climateName].getValue(row, col)
-            infSum = infSum + inf
-
-        if infSum != 0.0:
-            for climateName in climates.keys():
-                rawInf = maps[climateName].getValue(row, col)
-                maps[climateName].setValue(row, col, rawInf / infSum)
-
+    maps = normalizeMaps(maps)
     return maps
 
 
@@ -385,7 +375,7 @@ def generateVegetationLocations(vegTypeMaps: dict, vegetationProbability: GridMa
 
 
 # ===========================================
-# Height Maps
+# Height Maps Generation Methods
 # ===========================================
 
 class HeightMapGenerationMethod:
@@ -430,8 +420,8 @@ class HeightMapFromSDF(HeightMapGenerationMethod):
             pool.map(getSignedDistanceOfPixelToAreaPartition(mapWidth, mapHeight, partition),
                      range(mapWidth * mapHeight)))
 
-        minDist = abs(min(pixelDistanceValues))
-        pixelDistanceValues = [d / minDist for d in pixelDistanceValues]
+        absoluteMinDist = abs(min(pixelDistanceValues))
+        pixelDistanceValues = [d / absoluteMinDist for d in pixelDistanceValues]
         diffH = self.__maxH - self.__minH
         if self.__ascending:
             pixelDistanceValues = [self.__minH - diffH * d for d in pixelDistanceValues]
@@ -443,40 +433,65 @@ class HeightMapFromSDF(HeightMapGenerationMethod):
         return heightMap
 
 
-class ElevationProfile:
-    def __init__(self, method: HeightMapGenerationMethod):
+# ===========================================
+# Elevation Profile
+# ===========================================
+
+class HeightProfile:
+    def __init__(self, method: HeightMapGenerationMethod, fadeRadius: float = 0.085):
         self.__method: HeightMapGenerationMethod = method
+        self.__fadeRadius = fadeRadius
 
     @property
     def GenerationMethod(self):
         return self.__method
 
+    @property
+    def FadeRadius(self):
+        return self.__fadeRadius
+
+
+# ===========================================
+# Height map generation
+# ===========================================
+
+def easeInOutQuart(x: float):
+    if x < 0.5:
+        return 8 * x * x * x * x
+    else:
+        return 1 - ((-2 * x + 2) ** 4) / 2
+
 
 class calcPartitionInfluenceOnPixel(object):
-    def __init__(self, areaName: string, w: int, h: int, partition, areaOfPixels):
+    def __init__(self, areaName: string, w: int, h: int, partition, areaOfPixels, fadeRadius: float = 0.075):
         self.areaName = areaName
         self.w = w
         self.h = h
         self.partition = partition
         self.areaOfPixels = areaOfPixels
+        self.fadeRadius = fadeRadius
 
     def __call__(self, pixelIndex):
         areaOfPixel = self.areaOfPixels[pixelIndex]
         pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
-        fadeRadius = 0.1 * min(self.w, self.h)
+        fadeRadius = self.fadeRadius * min(self.w, self.h)
 
+        if areaOfPixel == "EMPTY":
+            return 0.0
+        dist = self.partition.findDistanceToPoint(pixel)
         if areaOfPixel == self.areaName:
-            return 1.0
+            blendValue = 0.5 + 0.5 * min(dist, fadeRadius) / fadeRadius
         else:
-            dist = self.partition.findDistanceToPoint(pixel)
-            return 1.0 - min(dist, fadeRadius) / fadeRadius
+            blendValue = 0.5 - 0.5 * min(dist, fadeRadius) / fadeRadius
+
+        return easeInOutQuart(blendValue)
 
 
-def generateAreaInfluenceMapFromPartitions(partitions: dict, mapWidth: int, mapHeight: int) -> dict:
+def generateAreaInfluenceMapFromPartitions(partitions: dict, fadeRadius: dict, mapWidth: int, mapHeight: int) -> dict:
     maps: Dict[string, GridMap] = {}
     areaNames = list(partitions.keys())
-    pool = multiprocessing.Pool(processes=4)
 
+    pool = multiprocessing.Pool(processes=4)
     areaOfPixels = list(
         pool.map(findContainingAreaForPixel(mapWidth, mapHeight, partitions), range(mapWidth * mapHeight)))
 
@@ -485,7 +500,8 @@ def generateAreaInfluenceMapFromPartitions(partitions: dict, mapWidth: int, mapH
                                                                 mapWidth,
                                                                 mapHeight,
                                                                 partitions[areaName],
-                                                                areaOfPixels),
+                                                                areaOfPixels,
+                                                                fadeRadius[areaName]),
                                   range(mapWidth * mapHeight)))
         maps[areaName] = GridMap(mapWidth, mapHeight)
         maps[areaName].importValues(influence)
@@ -494,16 +510,40 @@ def generateAreaInfluenceMapFromPartitions(partitions: dict, mapWidth: int, mapH
     return maps
 
 
+def calcHeightOfPixelFromPartialHeightMaps(row: int, col: int, influenceMaps: dict, partialHeightMaps: dict) -> float:
+    h = 0
+    for area in partialHeightMaps.keys():
+        h = h + partialHeightMaps[area].getValue(row, col) * influenceMaps[area].getValue(row, col)
+    return h
+
+
 def generateHeightMapFromElevationSettings(mapWidth: int, mapHeight: int, settings: dict, partitions: dict) -> GridMap:
     partialHeightMaps: dict = {}
-
     scaledPartitions = copy.deepcopy(partitions)
     for area in scaledPartitions.keys():
         scaledPartitions[area].scalePartition(mapWidth, mapHeight)
 
-    for area in partitions.keys():
-        partialHeightMaps[area] = settings[area].GenerationMethod(partitions[area], mapWidth, mapHeight)
+    for area in scaledPartitions.keys():
+        partialHeightMaps[area] = settings[area].GenerationMethod(scaledPartitions[area], mapWidth, mapHeight)
 
-    influenceMaps = generateAreaInfluenceMapFromPartitions(partitions, mapWidth, mapHeight)
+    fadeRadius = {}
+    for area in settings.keys():
+        fadeRadius[area] = settings[area].FadeRadius
 
-    return GridMap(mapWidth, mapHeight)
+    influenceMaps = generateAreaInfluenceMapFromPartitions(scaledPartitions, fadeRadius, mapWidth, mapHeight)
+
+    heightValues = [calcHeightOfPixelFromPartialHeightMaps(row, col, influenceMaps, partialHeightMaps) for
+                    row, col in
+                    itertools.product(range(mapHeight), range(mapWidth))]
+
+    pool = multiprocessing.Pool(processes=4)
+    areaOfPixels = list(
+        pool.map(findContainingAreaForPixel(mapWidth, mapHeight, scaledPartitions), range(mapWidth * mapHeight)))
+
+    indices = [i for i, area in enumerate(areaOfPixels) if area == "EMPTY"]
+    for i in indices:
+        heightValues[i] = np.nan
+
+    heightMap = GridMap(mapWidth, mapHeight)
+    heightMap.importValues(heightValues)
+    return heightMap

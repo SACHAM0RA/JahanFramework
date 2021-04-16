@@ -250,4 +250,4 @@ class AreaPartition:
 
     def findDistanceToPoint(self, p: Vector2D) -> float:
         poly = Polygon(self.superCellPointsAsList)
-        return poly.exterior.distance(Point(p.asList))
+        return abs(poly.exterior.distance(Point(p.asList)))

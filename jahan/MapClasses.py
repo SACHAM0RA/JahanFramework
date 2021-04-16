@@ -64,6 +64,14 @@ class GridMap:
                 ret[i].append(self.getValue(j, self.__height - i - 1))
         return ret
 
+    def exportFor3DPlotting(self):
+        values = []
+        for i in range(len(self.__values)):
+            row = int(i / self.__width)
+            col = int(i % self.__height)
+            values.append(self.getValue(row, self.__height - col - 1))
+        return values
+
 
 def addGrids(a: GridMap, b: GridMap):
     if len(a) == len(b):
