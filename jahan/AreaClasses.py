@@ -1,6 +1,5 @@
 import copy
 import string
-from typing import List, Dict
 import networkx as nx
 from jahan.VectorArithmetic import *
 from shapely.geometry import Point, Polygon
@@ -98,9 +97,6 @@ class AreaLayout:
 
 # ======================================================================================================================
 
-def distanceToPoint(segment: Segment2D, p: Vector2D, distFunc: FunctionType):
-    return segment.getDistanceToPoint(p, distFunc)
-
 
 class AreaSkeleton:
     __areaName: string
@@ -113,7 +109,7 @@ class AreaSkeleton:
         self.__segments = segments
 
     def findDistanceToPoint(self, p: Vector2D, distanceFunction: FunctionType) -> float:
-        distances = [distanceToPoint(s, p, distanceFunction) for s in self.__segments]
+        distances = [s.getDistanceToPoint(p, distanceFunction) for s in self.__segments]
         return min(distances)
 
     @property
@@ -130,21 +126,6 @@ class AreaSkeleton:
 
 
 # ======================================================================================================================
-
-def doesConvexPolygonContainPoint(polygon: List[Vector2D], point: Vector2D) -> bool:
-    length = len(polygon)
-    rightSide = None
-    for i in range(length):
-        seg = Segment2D(polygon[i], polygon[(i + 1) % length])
-        segNormal = seg.normal
-        dir = (point - polygon[i]).normal
-        newSide = segNormal.perpDot(dir) < 0
-        if rightSide is None:
-            rightSide = newSide
-        else:
-            if rightSide != newSide:
-                return False
-    return True
 
 
 class AreaPartition:

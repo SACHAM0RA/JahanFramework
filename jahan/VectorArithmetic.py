@@ -4,6 +4,8 @@ from collections import defaultdict
 from types import FunctionType
 from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
 import numpy as np
+from typing import List
+from shapely.geometry import Point, Polygon
 
 
 class Vector2D:
@@ -139,7 +141,7 @@ class Segment2D:
         e = v - self.start
         return self.start + (self.normal * (self.direction.dot(e) / self.length))
 
-    def getDistanceToPoint(self, v: Vector2D, distanceFunction: FunctionType) -> float:
+    def getDistanceToPoint(self, v: Vector2D, distanceFunction) -> float:
         p = self.getProjectedPoint(v)
         if self.isPointOn(p):
             return distanceFunction(v, p)
@@ -168,10 +170,9 @@ def Segment2D_fromLists(a: list, b: list):
 
 # ======================================================================================================================
 
-def voronoi_finite_polygons_2d(vor, radius=None):
+def generateFinite2DVoronoi(vor, radius=None):
     """
-    Reconstruct infinite voronoi regions in a 2D diagram to finite
-    regions.
+    Reconstruct infinite voronoi regions in a 2D diagram to finite regions.
 
     Parameters
     ----------
@@ -185,9 +186,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
     regions : list of tuples
         Indices of vertices in each revised Voronoi regions.
     vertices : list of tuples
-        Coordinates for revised Voronoi vertices. Same as coordinates
-        of input vertices, with 'points at infinity' appended to the
-        end.
+        Coordinates for revised Voronoi vertices.
 
     """
 
@@ -270,7 +269,7 @@ class Canvas2D:
                 self.__neighbours[i].add(j)
                 self.__neighbours[j].add(i)
 
-        regions, vertices = voronoi_finite_polygons_2d(Voronoi(pointsAsList))
+        regions, vertices = generateFinite2DVoronoi(Voronoi(pointsAsList))
         self.__voronoi_regions = regions
         self.__voronoi_vertices = vertices
 
@@ -331,3 +330,4 @@ class Canvas2D:
 
     def getNeighboursOfSeedIndex(self, seedIndex) -> list:
         return list(self.__neighbours[seedIndex])
+

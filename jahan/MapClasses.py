@@ -136,7 +136,7 @@ def scaleGrid(a: GridMap, scalar: float):
     return newMap
 
 
-def normalizeMaps(maps: dict) -> dict:
+def normalizeGridMaps(maps: dict) -> dict:
     w = (list(maps.values()))[0].width
     h = (list(maps.values()))[0].height
     sumMap = GridMap(w, h)
@@ -149,7 +149,7 @@ def normalizeMaps(maps: dict) -> dict:
     return normalMaps
 
 
-def normalizeMapValues(m: GridMap) -> GridMap:
+def normalizeGridMapValues(m: GridMap) -> GridMap:
     values = m.exportValues()
     upper = max(values)
     lower = min(values)

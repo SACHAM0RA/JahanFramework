@@ -1,8 +1,9 @@
-import multiprocessing
-
 import matplotlib.pyplot as plt
 from jahan.AreaClasses import *
 from jahan.MapClasses import *
+from typing import Dict
+
+# MISC. ================================================================================================================
 
 palette = \
     [
@@ -34,14 +35,20 @@ def BrightenColor(color, preserve=0.8):
            color[2] * preserve + brightUp
 
 
+# ======================================================================================================================
+
 def creatMapPlot():
     figure, axes = plt.subplots()
+    axes.axes.xaxis.set_visible(False)
+    axes.axes.yaxis.set_visible(False)
+    plt.ylim((0, 1))
+    plt.xlim((0, 1))
+    axes.set_aspect(1)
     return figure, axes
 
 
 def addCircle(axes, center: Vector2D, radius: float, color=(0, 0, 0)):
     filled_circle = plt.Circle((center.X, center.Y), radius, color=color, zorder=currentOrder)
-    axes.set_aspect(1)
     axes.add_artist(filled_circle)
     incrementOrder()
 
@@ -57,7 +64,6 @@ def addText(axes, center: Vector2D, text: string, color=(0, 0, 0), bold: bool = 
                     horizontalalignment='center',
                     zorder=currentOrder)
 
-    axes.set_aspect(1)
     axes.add_artist(text)
     incrementOrder()
 
@@ -65,7 +71,6 @@ def addText(axes, center: Vector2D, text: string, color=(0, 0, 0), bold: bool = 
 def addLine(axes, a: Vector2D, b: Vector2D, color=(0, 0, 0), width=1, style='-'):
     line = plt.Line2D([a.X, b.X], [a.Y, b.Y],
                       c=color, linewidth=width, linestyle=style, zorder=currentOrder)
-    axes.set_aspect(1)
     axes.add_artist(line)
     incrementOrder()
 
@@ -73,7 +78,6 @@ def addLine(axes, a: Vector2D, b: Vector2D, color=(0, 0, 0), width=1, style='-')
 def addFilledPolygon(axes, polygon: List[Vector2D], color=(0, 0, 0)):
     points = list(map(lambda v: v.asList, polygon))
     poly = plt.Polygon(points, closed=True, color=color, fill=False, zorder=currentOrder)
-    axes.set_aspect(1)
     axes.add_artist(poly)
     incrementOrder()
 
@@ -85,7 +89,6 @@ def addOutlinePolygon(axes, polygon: List[Vector2D], outlineColor=(0, 0, 0), fil
                        edgecolor=outlineColor,
                        facecolor=fillColor,
                        zorder=currentOrder)
-    axes.set_aspect(1)
     axes.add_artist(poly)
     incrementOrder()
 
@@ -111,8 +114,8 @@ def addCanvas(axes, canvas: Canvas2D, drawCells: bool = True, drawNeighbours: bo
             addLine(axes, s.start, s.end, pointColor)
 
 
-def createColoringSchemeForAreaLayout(layout: AreaLayout) -> Dict:
-    scheme: Dict = {}
+def createColoringSchemeForAreaLayout(layout: AreaLayout) -> dict:
+    scheme = {}
     for index in range(len(layout)):
         scheme[layout.areas[index]] = getColorFormPalette(index)
     return scheme
@@ -144,7 +147,7 @@ def addAreaSkeletonsText(axes, skeleton: AreaSkeleton):
     addText(axes, skeleton.root, skeleton.areaName, textColor)
 
 
-def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: Dict):
+def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: dict):
     for skeleton in skeletons:
         addSingleAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
 
@@ -182,12 +185,11 @@ def addMultiAreaPartitions(axes,
                          drawSeeds, drawCells)
 
 
-def addSingleMap(axes, influenceMap: GridMap, colorMap):
-    image = plt.imshow(influenceMap.asListOfListsForImShow,
+def addSingleMap(axes, gridMap: GridMap, colorMap):
+    image = plt.imshow(gridMap.asListOfListsForImShow,
                        aspect='auto',
                        extent=[0, 1, 0, 1],
                        cmap=colorMap)
-    axes.set_aspect(1)
     axes.add_artist(image)
     incrementOrder()
 
@@ -218,7 +220,6 @@ def AddMultipleMaps(axes, influenceMap: Dict, coloring: Dict):
     image = plt.imshow(colors,
                        aspect='auto',
                        extent=[0, 1, 0, 1])
-    axes.set_aspect(1)
     axes.add_artist(image)
     incrementOrder()
 
@@ -236,26 +237,27 @@ def addDictionaryOfLocations(axes, locationLists: dict, coloring, w: float, h: f
 
 
 def showMap(title: string):
-    plt.ylim((0, 1))
-    plt.xlim((0, 1))
     plt.title(title)
     plt.show()
 
 
 def showHeightMap(m: GridMap):
-    fig = plt.figure(figsize=(8.0, 8.0), dpi=300)
+    fig = plt.figure(figsize=(8.0, 8.0), dpi=100)
     ax = fig.add_subplot(projection='3d')
-    ax.view_init(45, 45)
+    ax.view_init(90, 0)
 
-    # make the panes transparent
-    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    ax.xaxis.set_pane_color((0, 0, 0, 0))
+    ax.yaxis.set_pane_color((0, 0, 0, 0))
+    ax.zaxis.set_pane_color((0, 0, 0, 0))
 
-    # make the grid lines transparent
     ax.xaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
     ax.yaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
-    ax.zaxis._axinfo["grid"]['color'] = (1, 1, 1, 1)
+    ax.zaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
+
+    ax.tick_params(axis='both', which='major', labelcolor=(0, 0, 0, 0))
+    ax.tick_params(axis='both', which='minor', labelcolor=(0, 0, 0, 0))
+
+    plt.locator_params(nbins=24)
 
     x = range(m.width)
     y = range(m.height)
@@ -280,7 +282,8 @@ def showHeightMap(m: GridMap):
                               antialiased=False, vmin=minH,
                               vmax=maxH)
 
-    fig.colorbar(surface, shrink=0.5, orientation='horizontal', pad=0.05)
+    colorBar = fig.colorbar(surface, shrink=0.5, orientation='vertical', pad=0.05)
+    colorBar.ax.tick_params(labelsize=16)
 
     ax.contour(X, Y, Z,
                colors=[(1, 1, 1, 0.35)],

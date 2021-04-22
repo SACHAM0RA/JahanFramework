@@ -45,17 +45,19 @@ if __name__ == '__main__':
     # SPECIFICATION STEP 2 : ELEVATION SETTINGS
     # ==================================================================================================================
 
-    heightProfile_1 = jtb.HeightProfile(method=jtb.HeightMapFromFlatValue(flatHeight=0.0),
-                                        fadeRadius=0.1)
+    noiseGenerator_1 = jtb.PerlinHeightNoiseGenerator(amplitude=2.5, octaves=4, scale=12)
 
-    heightProfile_2 = jtb.HeightProfile(method=jtb.HeightMapFromFlatValue(flatHeight=15.0),
-                                        fadeRadius=0.1)
+    heightProfile_1 = jtb.HeightProfile(foundation=jtb.Flat_HeightFoundation(flatHeight=0.0),
+                                        fadeRadius=0.1, detail=noiseGenerator_1)
 
-    heightProfile_3 = jtb.HeightProfile(method=jtb.HeightMapFromSDF(ascending=True, minHeight=10, maxHeight=30),
-                                        fadeRadius=0.1)
+    heightProfile_2 = jtb.HeightProfile(foundation=jtb.Flat_HeightFoundation(flatHeight=15.0),
+                                        fadeRadius=0.1, detail=noiseGenerator_1)
 
-    heightProfile_4 = jtb.HeightProfile(method=jtb.HeightMapFromSDF(ascending=False, minHeight=0, maxHeight=20),
-                                        fadeRadius=0.1)
+    heightProfile_3 = jtb.HeightProfile(foundation=jtb.SDF_HeightFoundation(ascending=True, minHeight=10, maxHeight=30),
+                                        fadeRadius=0.1, detail=noiseGenerator_1)
+
+    heightProfile_4 = jtb.HeightProfile(foundation=jtb.SDF_HeightFoundation(ascending=False, minHeight=0, maxHeight=20),
+                                        fadeRadius=0.1, detail=noiseGenerator_1)
 
     elevationSettings = {"A": heightProfile_1,
                          "B": heightProfile_2,
@@ -109,38 +111,47 @@ if __name__ == '__main__':
     # PIPELINE MODULE 3 : CANVAS GENERATION (DIFFERENT IMPLEMENTATIONS)
     # ==================================================================================================================
 
-    # canvas = jtb.squareGridCanvasGenerator(25, 25)
-    canvas = jtb.looseSquareGridCanvasGenerator(25, 25, 0.35)
-    # canvas = jtb.hexagonGridCanvasGenerator(25, 25)
-    # canvas = jtb.randomCanvasGenerator(500)
-    # canvas = jtb.circularCanvasGenerator(0.05, 150)
+    # canvasGenerator = jtb.SquareGridCanvasGenerator(25, 25)
+    canvasGenerator = jtb.LooseSquareGridCanvasGenerator(25, 25, 0.35)
+    # canvasGenerator = jtb.HexagonGridCanvasGenerator(25, 25)
+    # canvasGenerator = jtb.RandomCanvasGenerator(500)
+    # canvasGenerator = jtb.CircularCanvasGenerator(0.05, 150)
+
+    canvas = canvasGenerator.generate()
 
     # ==================================================================================================================
-    # PIPELINE MODULE 4 : CANVAS PARTITIONING (DIFFERENT IMPLEMENTATIONS)
+    # PIPELINE MODULE 4 : PARTITIONING DISTANCE (DIFFERENT IMPLEMENTATIONS)
     # ==================================================================================================================
-    partitions, emptyPartition = jtb.partitionCanvasByAreaSkeletons(canvas, layout, skeletons, jtb.euclideanDistance)
-    # partitions, emptyPartition = jtb.partitionCanvasByAreaSkeletons(canvas, layout, skeletons, jtb.manhattanDistance)
-    # partitions, emptyPartition = jtb.partitionCanvasByAreaSkeletons(canvas, layout, skeletons, jtb.infNormDistance)
+
+    distanceCalculator = jtb.EuclideanDistanceCalculator()
+    # distanceCalculator = jtb.ManhattanDistanceCalculator()
+    # distanceCalculator = jtb.InfiniteNormDistanceCalculator()
 
     # ==================================================================================================================
-    # PIPELINE MODULE 5 : GENERATING HEIGHT MAPS (DIFFERENT IMPLEMENTATIONS)
+    # PIPELINE MODULE 5 : PARTITIONING
+    # ==================================================================================================================
+
+    partitions, emptyPartition = jtb.partitionCanvasByAreaSkeletons(canvas, layout, skeletons, distanceCalculator)
+
+    # ==================================================================================================================
+    # PIPELINE MODULE 6 : GENERATING HEIGHT MAPS (DIFFERENT IMPLEMENTATIONS)
     # ==================================================================================================================
 
     heightMap = jtb.generateHeightMapFromElevationSettings(128, 128, elevationSettings, partitions)
     # heightMap = jtb.generateAreaInfluenceMapFromPartitions(partitions, 128, 128)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 6 : GENERATING CLIMATE INFLUENCE MAPS
+    # PIPELINE MODULE 7 : GENERATING CLIMATE INFLUENCE MAPS
     # ==================================================================================================================
     #climateMaps = jtb.generateClimateInfluenceMapsFromAreaPartitions(128, 128, partitions, climates, climateAssignments)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 7 : GENERATING SURFACE MAPS
+    # PIPELINE MODULE 8 : GENERATING SURFACE MAPS
     # ==================================================================================================================
     #surfaceMaps = jtb.generateSurfaceMaps(climateMaps, climates)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 8 : VEGETATION PLACEMENT
+    # PIPELINE MODULE 9 : VEGETATION PLACEMENT
     # ==================================================================================================================
     #vegetationProbabilityMap = jtb.generateVegetationProbabilityMap(climateMaps, climates)
     #vegetationTypeMaps = jtb.generateVegetationTypeMaps(climateMaps, climates)
@@ -159,9 +170,9 @@ if __name__ == '__main__':
     # jDraw.addMultipleAreaSkeletons(axes, skeletons, layoutColoring)
     # jDraw.addSingleMap(axes, vegetationProbabilityMap, 'Greens')
     # jDraw.addSingleMap(axes, climateMaps["climate_1"], 'Greys')
-    jDraw.addSingleMap(axes, heightMap, 'Greys')
     # jDraw.AddMultipleMaps(axes, surfaceMaps, {"GRASS": (0, 0.5, 0), "MUD": (0.62, 0.32, 0.17)})
     # jDraw.AddMultipleMaps(axes, vegetationTypeMaps, vegetationColoring)
     # jDraw.addDictionaryOfLocations(axes, vegetationLocations, vegetationColoring, 128, 128)
+
     jDraw.showMap("PLOT")
     jDraw.showHeightMap(heightMap)

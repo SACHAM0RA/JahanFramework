@@ -1,91 +1,207 @@
-from typing import Dict
 from jahan.AreaClasses import *
-from random import random, uniform
 from jahan.MapClasses import *
+from jahan.Noise2D import *
 from jahan.VectorArithmetic import Canvas2D, Vector2D
+from typing import Dict
 import multiprocessing
 
 
-def manhattanDistance(a: Vector2D, b: Vector2D) -> float:
-    d = a - b
-    return math.fabs(d.X) + math.fabs(d.Y)
+# ===========================================
+# Setting Random Seed
+# ===========================================
 
 
-def euclideanDistance(a: Vector2D, b: Vector2D) -> float:
-    return (a - b).length
+# ===========================================
+# General Stuff
+# ===========================================
+
+def easeInOutQuart(x: float):
+    if x < 0.5:
+        return 8 * x * x * x * x
+    else:
+        return 1 - ((-2 * x + 2) ** 4) / 2
 
 
-def infNormDistance(a: Vector2D, b: Vector2D) -> float:
-    d = a - b
-    return max(math.fabs(d.X), math.fabs(d.Y))
+class calcPartitionInfluenceOnPixel(object):
+    def __init__(self, areaName: string, w: int, h: int, partition, areaOfPixels, fadeRadius: float = 0.075):
+        self.areaName = areaName
+        self.w = w
+        self.h = h
+        self.partition = partition
+        self.areaOfPixels = areaOfPixels
+        self.fadeRadius = fadeRadius
+
+    def __call__(self, pixelIndex):
+        areaOfPixel = self.areaOfPixels[pixelIndex]
+        pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
+        fadeRadius = self.fadeRadius * min(self.w, self.h)
+
+        if areaOfPixel == "EMPTY":
+            return 0.0
+        dist = self.partition.findDistanceToPoint(pixel)
+        if areaOfPixel == self.areaName:
+            blendValue = 0.5 + 0.5 * min(dist, fadeRadius) / fadeRadius
+        else:
+            blendValue = 0.5 - 0.5 * min(dist, fadeRadius) / fadeRadius
+
+        return easeInOutQuart(blendValue)
 
 
-def squareGridCanvasGenerator(width: int, height: int) -> Canvas2D:
-    points = []
-    dx: float = 1 / width
-    dy: float = 1 / height
+def generateAreaInfluenceMapFromPartitions(partitions: dict, fadeRadius: dict, mapWidth: int, mapHeight: int) -> dict:
+    maps: Dict[string, GridMap] = {}
+    areaNames = list(partitions.keys())
 
-    for i in range(width):
-        for j in range(height):
-            p = Vector2D(dx * (i + 0.5), dy * (j + 0.5))
-            points.append(p)
+    pool = multiprocessing.Pool(processes=4)
+    areaOfPixels = list(
+        pool.map(findContainingAreaForPixel(mapWidth, mapHeight, partitions), range(mapWidth * mapHeight)))
 
-    return Canvas2D(points)
+    for areaName in areaNames:
+        influence = list(pool.map(calcPartitionInfluenceOnPixel(areaName,
+                                                                mapWidth,
+                                                                mapHeight,
+                                                                partitions[areaName],
+                                                                areaOfPixels,
+                                                                fadeRadius[areaName]),
+                                  range(mapWidth * mapHeight)))
+        maps[areaName] = GridMap(mapWidth, mapHeight)
+        maps[areaName].importValues(influence)
 
-
-def looseSquareGridCanvasGenerator(width: int, height: int, loosness: float = 0.5) -> Canvas2D:
-    points = []
-    dx: float = 1 / width
-    dy: float = 1 / height
-
-    for i in range(width):
-        for j in range(height):
-            p = Vector2D(dx * (i + 0.5) + dx * uniform(-1 * loosness, loosness),
-                         dy * (j + 0.5) + dy * uniform(-1 * loosness, loosness))
-            points.append(p)
-
-    return Canvas2D(points)
+    maps = normalizeGridMaps(maps)
+    return maps
 
 
-def hexagonGridCanvasGenerator(width: int, height: int) -> Canvas2D:
-    points = []
-    dx: float = 1 / width
-    dy: float = 1 / height
+# ===========================================
+# Distance Calculator
+# ===========================================
 
-    for i in range(width + 1):
-        for j in range(height):
-            offset = (j % 2) * 0.5
-            p = Vector2D(dx * (i + offset), dy * (j + 0.5))
-            points.append(p)
-
-    return Canvas2D(points)
+class DistanceCalculator:
+    def __call__(self, *args, **kwargs) -> float:
+        return 0.0
 
 
-def circularCanvasGenerator(deltaR: float = 0.5, ringLength: int = 100) -> Canvas2D:
-    points = []
-    radius = deltaR
-    radIndex = 0
-    while radius <= math.sqrt(2) / 2:
-        L = int(ringLength * radius)
-        deltaA = 2 * math.pi / L
-        for i in range(L):
-            angel = i * deltaA
-            x = radius * math.cos(angel) + 0.5
-            y = radius * math.sin(angel) + 0.5
+class ManhattanDistanceCalculator(DistanceCalculator):
+    def __call__(self, *args, **kwargs):
+        a = args[0]
+        b = args[1]
+        d = a - b
+        return math.fabs(d.X) + math.fabs(d.Y)
+
+
+class EuclideanDistanceCalculator(DistanceCalculator):
+    def __call__(self, *args, **kwargs):
+        a = args[0]
+        b = args[1]
+        return (a - b).length
+
+
+class InfiniteNormDistanceCalculator(DistanceCalculator):
+    def __call__(self, *args, **kwargs):
+        a = args[0]
+        b = args[1]
+        d = a - b
+        return max(math.fabs(d.X), math.fabs(d.Y))
+
+
+# ===========================================
+# Canvas generation
+# ===========================================
+
+class CanvasGenerator:
+    def generate(self) -> Canvas2D:
+        return Canvas2D([])
+
+
+class SquareGridCanvasGenerator(CanvasGenerator):
+    def __init__(self, width: int, height: int):
+        self.__w = width
+        self.__h = height
+
+    def generate(self) -> Canvas2D:
+        points = []
+        dx: float = 1 / self.__w
+        dy: float = 1 / self.__h
+
+        for i in range(self.__w):
+            for j in range(self.__h):
+                p = Vector2D(dx * (i + 0.5), dy * (j + 0.5))
+                points.append(p)
+
+        return Canvas2D(points)
+
+
+class LooseSquareGridCanvasGenerator(CanvasGenerator):
+    def __init__(self, width: int, height: int, looseness: float = 0.5):
+        self.__w = width
+        self.__h = height
+        self.__looseness = looseness
+
+    def generate(self) -> Canvas2D:
+        points = []
+        dx: float = 1 / self.__w
+        dy: float = 1 / self.__h
+
+        for i in range(self.__w):
+            for j in range(self.__h):
+                p = Vector2D(dx * (i + 0.5) + dx * uniform(-1 * self.__looseness, self.__looseness),
+                             dy * (j + 0.5) + dy * uniform(-1 * self.__looseness, self.__looseness))
+                points.append(p)
+
+        return Canvas2D(points)
+
+
+class HexagonGridCanvasGenerator(CanvasGenerator):
+    def __init__(self, width: int, height: int):
+        self.__w = width
+        self.__h = height
+
+    def generate(self) -> Canvas2D:
+        points = []
+        dx: float = 1 / self.__w
+        dy: float = 1 / self.__h
+
+        for i in range(self.__w + 1):
+            for j in range(self.__h):
+                offset = (j % 2) * 0.5
+                p = Vector2D(dx * (i + offset), dy * (j + 0.5))
+                points.append(p)
+
+        return Canvas2D(points)
+
+
+class CircularCanvasGenerator(CanvasGenerator):
+    def __init__(self, deltaRadius: float = 0.5, ringLength: int = 100):
+        self.__deltaRadius = deltaRadius
+        self.__ringLength = ringLength
+
+    def generate(self) -> Canvas2D:
+        points = []
+        radius = self.__deltaRadius
+        radIndex = 0
+        while radius <= math.sqrt(2) / 2:
+            L = int(self.__ringLength * radius)
+            deltaA = 2 * math.pi / L
+            for i in range(L):
+                angel = i * deltaA
+                x = radius * math.cos(angel) + 0.5
+                y = radius * math.sin(angel) + 0.5
+                points.append(Vector2D(x, y))
+            radius = radius + self.__deltaRadius
+            radIndex = radIndex + 1
+        return Canvas2D(points)
+
+
+class RandomCanvasGenerator(CanvasGenerator):
+    def __init__(self, seedCount: int):
+        self.__seedCount = seedCount
+
+    def generate(self) -> Canvas2D:
+        points = []
+        for i in range(self.__seedCount):
+            x = random()
+            y = random()
             points.append(Vector2D(x, y))
-        radius = radius + deltaR
-        radIndex = radIndex + 1
-    return Canvas2D(points)
 
-
-def randomCanvasGenerator(seedNumber: int) -> Canvas2D:
-    points = []
-    for i in range(seedNumber):
-        x = random()
-        y = random()
-        points.append(Vector2D(x, y))
-
-    return Canvas2D(points)
+        return Canvas2D(points)
 
 
 def defaultPlanarEmbedding(layout: AreaLayout,
@@ -265,7 +381,7 @@ def generateClimateInfluenceMapsFromAreaPartitions(mapWidth: int,
         maps[climateName] = GridMap(mapWidth, mapHeight)
         maps[climateName].importValues(influence)
 
-    maps = normalizeMaps(maps)
+    maps = normalizeGridMaps(maps)
     return maps
 
 
@@ -343,7 +459,7 @@ def generateVegetationTypeMaps(climateMaps: Dict, climates: Dict) -> dict:
         maps[vegType] = GridMap(w, h)
         maps[vegType].importValues(m)
 
-    return normalizeMaps(maps)
+    return normalizeGridMaps(maps)
 
 
 def assignVegetation(row: int, col: int, vegTypeMaps: dict, vegetationProbability: GridMap):
@@ -375,15 +491,15 @@ def generateVegetationLocations(vegTypeMaps: dict, vegetationProbability: GridMa
 
 
 # ===========================================
-# Height Maps Generation Methods
+# Height Foundation
 # ===========================================
 
-class HeightMapGenerationMethod:
+class HeightFoundation:
     def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
         return GridMap(mapWidth, mapHeight)
 
 
-class HeightMapFromFlatValue(HeightMapGenerationMethod):
+class Flat_HeightFoundation(HeightFoundation):
     def __init__(self, flatHeight: float):
         self.__H = flatHeight
 
@@ -408,7 +524,7 @@ class getSignedDistanceOfPixelToAreaPartition:
             return absDist
 
 
-class HeightMapFromSDF(HeightMapGenerationMethod):
+class SDF_HeightFoundation(HeightFoundation):
     def __init__(self, ascending: bool, minHeight: float, maxHeight: float):
         self.__ascending = ascending
         self.__minH = min(minHeight, maxHeight)
@@ -434,81 +550,77 @@ class HeightMapFromSDF(HeightMapGenerationMethod):
 
 
 # ===========================================
-# Elevation Profile
+# Height Noise
+# ===========================================
+
+class HeightNoiseGenerator:
+    def __init__(self, amplitude: float):
+        self.__a = amplitude
+
+    @property
+    def amplitude(self):
+        return self.__a
+
+    def generateNoiseMap(self, width: int, height: int) -> GridMap:
+        return GridMap(width, height)
+
+
+class WhiteHeightNoiseGenerator(HeightNoiseGenerator):
+    def generateNoiseMap(self, width: int, height: int) -> GridMap:
+        noise = whiteNoise(width, height, self.amplitude)
+        m: GridMap = GridMap(width, height)
+        m.importValues(noise)
+        return m
+
+
+class PerlinHeightNoiseGenerator(HeightNoiseGenerator):
+    def __init__(self, amplitude: float, octaves=4, scale=8):
+        super().__init__(amplitude)
+        self.scale = scale
+        self.octaves = octaves
+
+    def generateNoiseMap(self, width: int, height: int) -> GridMap:
+        noise = perlinNoise(width, height, self.amplitude, self.octaves, self.scale)
+        m: GridMap = GridMap(width, height)
+        m.importValues(noise)
+        return m
+
+
+class OpenSimplexHeightNoiseGenerator(HeightNoiseGenerator):
+    def generateNoiseMap(self, width: int, height: int) -> GridMap:
+        noise = openSimplexNoise(width, height, self.amplitude)
+        m: GridMap = GridMap(width, height)
+        m.importValues(noise)
+        return m
+
+
+class WorleyHeightNoiseGenerator(HeightNoiseGenerator):
+    def generateNoiseMap(self, width: int, height: int) -> GridMap:
+        return GridMap(width, height)
+
+
+# ===========================================
+# Height Profile
 # ===========================================
 
 class HeightProfile:
-    def __init__(self, method: HeightMapGenerationMethod, fadeRadius: float = 0.085):
-        self.__method: HeightMapGenerationMethod = method
+    def __init__(self, foundation: HeightFoundation, detail: HeightNoiseGenerator, fadeRadius: float = 0.1):
+        self.__foundation: HeightFoundation = foundation
+        self.__noise = detail
         self.__fadeRadius = fadeRadius
 
     @property
-    def GenerationMethod(self):
-        return self.__method
-
-    @property
-    def FadeRadius(self):
+    def fadeRadius(self):
         return self.__fadeRadius
+
+    def heightMapForPartition(self, partition, mapWidth, mapHeight):
+        foundationHeight = self.__foundation(partition, mapWidth, mapHeight)
+        return addGrids(foundationHeight, self.__noise.generateNoiseMap(mapWidth, mapHeight))
 
 
 # ===========================================
 # Height map generation
 # ===========================================
-
-def easeInOutQuart(x: float):
-    if x < 0.5:
-        return 8 * x * x * x * x
-    else:
-        return 1 - ((-2 * x + 2) ** 4) / 2
-
-
-class calcPartitionInfluenceOnPixel(object):
-    def __init__(self, areaName: string, w: int, h: int, partition, areaOfPixels, fadeRadius: float = 0.075):
-        self.areaName = areaName
-        self.w = w
-        self.h = h
-        self.partition = partition
-        self.areaOfPixels = areaOfPixels
-        self.fadeRadius = fadeRadius
-
-    def __call__(self, pixelIndex):
-        areaOfPixel = self.areaOfPixels[pixelIndex]
-        pixel = Vector2D(pixelIndex / self.w, pixelIndex % self.h)
-        fadeRadius = self.fadeRadius * min(self.w, self.h)
-
-        if areaOfPixel == "EMPTY":
-            return 0.0
-        dist = self.partition.findDistanceToPoint(pixel)
-        if areaOfPixel == self.areaName:
-            blendValue = 0.5 + 0.5 * min(dist, fadeRadius) / fadeRadius
-        else:
-            blendValue = 0.5 - 0.5 * min(dist, fadeRadius) / fadeRadius
-
-        return easeInOutQuart(blendValue)
-
-
-def generateAreaInfluenceMapFromPartitions(partitions: dict, fadeRadius: dict, mapWidth: int, mapHeight: int) -> dict:
-    maps: Dict[string, GridMap] = {}
-    areaNames = list(partitions.keys())
-
-    pool = multiprocessing.Pool(processes=4)
-    areaOfPixels = list(
-        pool.map(findContainingAreaForPixel(mapWidth, mapHeight, partitions), range(mapWidth * mapHeight)))
-
-    for areaName in areaNames:
-        influence = list(pool.map(calcPartitionInfluenceOnPixel(areaName,
-                                                                mapWidth,
-                                                                mapHeight,
-                                                                partitions[areaName],
-                                                                areaOfPixels,
-                                                                fadeRadius[areaName]),
-                                  range(mapWidth * mapHeight)))
-        maps[areaName] = GridMap(mapWidth, mapHeight)
-        maps[areaName].importValues(influence)
-
-    maps = normalizeMaps(maps)
-    return maps
-
 
 def calcHeightOfPixelFromPartialHeightMaps(row: int, col: int, influenceMaps: dict, partialHeightMaps: dict) -> float:
     h = 0
@@ -524,11 +636,11 @@ def generateHeightMapFromElevationSettings(mapWidth: int, mapHeight: int, settin
         scaledPartitions[area].scalePartition(mapWidth, mapHeight)
 
     for area in scaledPartitions.keys():
-        partialHeightMaps[area] = settings[area].GenerationMethod(scaledPartitions[area], mapWidth, mapHeight)
+        partialHeightMaps[area] = settings[area].heightMapForPartition(scaledPartitions[area], mapWidth, mapHeight)
 
     fadeRadius = {}
     for area in settings.keys():
-        fadeRadius[area] = settings[area].FadeRadius
+        fadeRadius[area] = settings[area].fadeRadius
 
     influenceMaps = generateAreaInfluenceMapFromPartitions(scaledPartitions, fadeRadius, mapWidth, mapHeight)
 
