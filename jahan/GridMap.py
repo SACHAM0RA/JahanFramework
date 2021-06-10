@@ -1,9 +1,7 @@
+import numpy as np
+
 
 class GridMap:
-    __width: int
-    __height: int
-    __values = []
-
     def __init__(self, w: int, h: int):
         self.__width = w
         self.__height = h
@@ -12,37 +10,41 @@ class GridMap:
     def __len__(self):
         return len(self.__values)
 
-    def __isValidIndex(self, row: int, column: int):
-        return 0 <= row < self.__height and 0 <= column < self.__width
+    def __isValidIndex(self, x: int, y: int):
+        return 0 <= x < self.__width and 0 <= y < self.__height
 
     def __extractCoordinates(self, index):
         return index / self.__width, index % self.__height
 
-    def __extractIndex(self, row: int, height: int):
-        return row * self.__width + height
+    def __extractIndex(self, x: int, y: int):
+        return y * self.__width + x
 
-    def getValue(self, row: int, column: int):
-        if self.__isValidIndex(row, column):
-            index = self.__extractIndex(row, column)
+    def getValue(self, x, y):
+        x = int(x)
+        y = int(y)
+
+        if self.__isValidIndex(x, y):
+            index = self.__extractIndex(x, y)
             return self.__values[index]
         else:
-            raise IndexError("Row and Column are not valid for GrayscaleMap")
+            raise IndexError("X and Y are not valid for GrayscaleMap")
 
-    def setValue(self, row: int, column: int, value: float):
-        if self.__isValidIndex(row, column):
+    def setValue(self, x: int, y: int, value: float):
+        if self.__isValidIndex(x, y):
             if 0 <= value <= 1:
-                index = self.__extractIndex(row, column)
+                index = self.__extractIndex(x, y)
                 self.__values[index] = value
             else:
                 raise Exception("Values in GrayscaleMaps should in [0.0, 1.0]")
         else:
-            raise IndexError("Row and Column are not valid for GrayscaleMap")
+            raise IndexError("X and Y are not valid for GrayscaleMap")
 
     def importValues(self, values: list):
         if len(values) == self.__width * self.__height:
             self.__values = values.copy()
         else:
-            raise Exception("Cannot import values, input list is not consistent with map dimensions.")
+            raise Exception(
+                "Cannot import values. {A} != {B}".format(A=len(values), B=self.__width * self.__height))
 
     def exportValues(self):
         return self.__values.copy()
@@ -56,20 +58,42 @@ class GridMap:
         return self.__height
 
     @property
+    def valueRange(self) -> float:
+        minV = np.nanmin(self.__values)
+        maxV = np.nanmax(self.__values)
+        return abs(maxV - minV)
+
+    @property
+    def valueMin(self) -> float:
+        return np.min(self.__values)
+
+    @property
+    def valueMax(self) -> float:
+        return np.max(self.__values)
+
+    @property
     def asListOfListsForImShow(self):
         ret = []
-        for i in range(self.__height):
+        for y in range(1, self.height):
             ret.append([])
-            for j in range(self.__width):
-                ret[i].append(self.getValue(j, self.__height - i - 1))
+            for x in range(1, self.width):
+                ret[y - 1].append(self.getValue(x, self.height - y))
         return ret
 
     def exportFor3DPlotting(self):
         values = []
         for i in range(len(self.__values)):
-            row = int(i / self.__width)
-            col = int(i % self.__height)
-            values.append(self.getValue(row, self.__height - col - 1))
+            x = int(i % self.__height)
+            y = int(i / self.__width)
+            values.append(self.getValue(x, y))
+        return values
+
+    def exportForContour(self):
+        values = []
+        for i in range(len(self.__values)):
+            x = int(i % self.__height)
+            y = int(i / self.__width)
+            values.append(self.getValue(x, y))
         return values
 
 
@@ -102,15 +126,15 @@ def divGrids(a: GridMap, b: GridMap):
         bValues = b.exportValues()
         aValues = a.exportValues()
 
-        sums = []
+        divs = []
         for i in range(len(a)):
-            if bValues[i] == 0:
-                sums.append(0.0)
+            if bValues[i] == 0.0:
+                divs.append(0.0)
             else:
-                sums.append(aValues[i] / bValues[i])
+                divs.append(aValues[i] / bValues[i])
 
         newMap = GridMap(a.width, a.height)
-        newMap.importValues(sums)
+        newMap.importValues(divs)
         return newMap
     else:
         raise Exception("Cannot DIV Grids with different sizes")

@@ -1,6 +1,10 @@
-import jahan.JahanToolbox as jtb
+import jahan.Layout as lyt
+import jahan.Canvas as cnv
+import jahan.Elevation as elv
+import jahan.Landscape as lnd
+import jahan.Markers as mrk
+import jahan.Toolbox as tbx
 import jahan.Drawing as jDraw
-from jahan.AreaClasses import *
 
 if __name__ == '__main__':
     # ==================================================================================================================
@@ -11,168 +15,239 @@ if __name__ == '__main__':
     # SPECIFICATION STEP 1 : AREA DEFINITIONS
     # ==================================================================================================================
 
-    layout = AreaLayout()
-    layout.addArea("A")
-    layout.addArea("B")
-    layout.addArea("C")
-    layout.addArea("D")
-    layout.addArea("E")
-    layout.addArea("F")
-    layout.addArea("G")
-    layout.addArea("H")
-    layout.addArea("I")
-    layout.addArea("J")
-    layout.addArea("K")
-    layout.addArea("L")
-    layout.connectAreas("A", "B")
-    layout.connectAreas("A", "C")
-    layout.connectAreas("B", "C")
-    layout.connectAreas("D", "E")
-    layout.connectAreas("B", "D")
-    layout.connectAreas("E", "C")
-    layout.connectAreas("E", "F")
-    layout.connectAreas("B", "G")
-    layout.connectAreas("B", "H")
-    layout.connectAreas("H", "F")
-    layout.connectAreas("G", "I")
-    layout.connectAreas("G", "H")
-    layout.connectAreas("F", "J")
-    layout.connectAreas("K", "L")
-    layout.connectAreas("K", "E")
-    layout.connectAreas("L", "C")
+    layoutSpec = lyt.AreaLayoutSpecification()
+    layoutSpec.addArea("A")
+    layoutSpec.addArea("B")
+    layoutSpec.addArea("C")
+    layoutSpec.addArea("D")
+    layoutSpec.addArea("E")
+    layoutSpec.addArea("F")
+    layoutSpec.addArea("G")
+    layoutSpec.addArea("H")
+    layoutSpec.addArea("I")
+    layoutSpec.addArea("J")
+    layoutSpec.addArea("K")
+    layoutSpec.addArea("L")
+    layoutSpec.connectAreas("A", "C")
+    layoutSpec.connectAreas("B", "C")
+    layoutSpec.connectAreas("E", "C")
+    layoutSpec.connectAreas("E", "F")
+    layoutSpec.connectAreas("H", "F")
+    layoutSpec.connectAreas("G", "I")
+    layoutSpec.connectAreas("G", "H")
+    layoutSpec.connectAreas("K", "L")
+    layoutSpec.connectAreas("K", "E")
+    layoutSpec.connectAreas("L", "C")
+    layoutSpec.connectAreas("H", "C")
 
     # ==================================================================================================================
     # SPECIFICATION STEP 2 : ELEVATION SETTINGS
     # ==================================================================================================================
 
-    noiseGenerator_1 = jtb.PerlinHeightNoiseGenerator(amplitude=2.5, octaves=4, scale=12)
+    noiseGenerator_0 = elv.PerlinHeightNoiseGenerator(amplitude=2.5, octaves=4, scale=16)
+    noiseGenerator_1 = elv.PerlinHeightNoiseGenerator(amplitude=5.5, octaves=4, scale=16)
+    noiseGenerator_2 = elv.OpenSimplexHeightNoiseGenerator(amplitude=7.5, octaves=4, scale=16)
+    noiseGenerator_3 = elv.WorleyHeightNoiseGenerator(amplitude=7.5, seedCount=100)
 
-    heightProfile_1 = jtb.HeightProfile(foundation=jtb.Flat_HeightFoundation(flatHeight=0.0),
-                                        fadeRadius=0.1, detail=noiseGenerator_1)
+    heightProfile_0 = elv.HeightProfile(foundation=elv.Flat_HeightFoundation(flatHeight=0),
+                                        detail=noiseGenerator_0)
 
-    heightProfile_2 = jtb.HeightProfile(foundation=jtb.Flat_HeightFoundation(flatHeight=15.0),
-                                        fadeRadius=0.1, detail=noiseGenerator_1)
+    heightProfile_1 = \
+        elv.HeightProfile(foundation=elv.Flat_HeightFoundation(flatHeight=7.5),
+                          detail=noiseGenerator_1)
 
-    heightProfile_3 = jtb.HeightProfile(foundation=jtb.SDF_HeightFoundation(ascending=True, minHeight=10, maxHeight=30),
-                                        fadeRadius=0.1, detail=noiseGenerator_1)
+    heightProfile_2 = \
+        elv.HeightProfile(foundation=elv.Flat_HeightFoundation(flatHeight=15.0),
+                          detail=noiseGenerator_1)
 
-    heightProfile_4 = jtb.HeightProfile(foundation=jtb.SDF_HeightFoundation(ascending=False, minHeight=0, maxHeight=20),
-                                        fadeRadius=0.1, detail=noiseGenerator_1)
+    heightProfile_3 = \
+        elv.HeightProfile(foundation=elv.SDF_HeightFoundation(ascending=True, minHeight=10, maxHeight=30),
+                          detail=noiseGenerator_1)
 
-    elevationSettings = {"A": heightProfile_1,
-                         "B": heightProfile_2,
-                         "C": heightProfile_3,
-                         "D": heightProfile_4,
-                         "E": heightProfile_1,
-                         "F": heightProfile_2,
-                         "G": heightProfile_3,
-                         "H": heightProfile_4,
-                         "I": heightProfile_1,
-                         "J": heightProfile_2,
-                         "K": heightProfile_3,
-                         "L": heightProfile_4}
+    heightProfile_4 = \
+        elv.HeightProfile(foundation=elv.Bell_HeightFoundation(ascending=False, minHeight=10, maxHeight=20),
+                          detail=noiseGenerator_1)
+
+    heightSettings = {"A": heightProfile_1,
+                      "B": heightProfile_2,
+                      "C": heightProfile_3,
+                      "D": heightProfile_4,
+                      "E": heightProfile_1,
+                      "F": heightProfile_2,
+                      "G": heightProfile_3,
+                      "H": heightProfile_4,
+                      "I": heightProfile_1,
+                      "J": heightProfile_2,
+                      "K": heightProfile_3,
+                      "L": heightProfile_4,
+                      tbx.EMPTY_PART: heightProfile_0}
 
     # ==================================================================================================================
-    # SPECIFICATION STEP 3 : CLIMATE DEFINITIONS
+    # SPECIFICATION STEP 3 : LANDSCAPE DEFINITIONS
     # ==================================================================================================================
 
-    climates = {"climate_1": AreaClimate(0.075, "MUD", 0.0, {"CEDAR": 5, "BUSH": 10}),
-                "climate_2": AreaClimate(0.075, "GRASS", 1.0, {"OAK": 10, "BUSH": 10}),
-                "climate_3": AreaClimate(0.075, "MUD", 0.5, {"OAK": 1, "CEDAR": 5})}
+    landscapes = {"landscape_0": lnd.LandscapeProfile("NONE", 0.0, {}),
+                  "landscape_1": lnd.LandscapeProfile("GRASS", 0.01, {"CEDAR": 5, "BUSH": 10}),
+                  "landscape_2": lnd.LandscapeProfile("MUD", 0.025, {"OAK": 10, "BUSH": 10}),
+                  "landscape_3": lnd.LandscapeProfile("SNOW", 0.02, {"OAK": 1, "CEDAR": 7})}
 
-    climateAssignments = {"A": "climate_1",
-                          "B": "climate_2",
-                          "C": "climate_2",
-                          "D": "climate_1",
-                          "E": "climate_1",
-                          "F": "climate_3",
-                          "G": "climate_2",
-                          "H": "climate_1",
-                          "I": "climate_1",
-                          "J": "climate_2",
-                          "K": "climate_3",
-                          "L": "climate_3"}
+    # ==================================================================================================================
+    # SPECIFICATION STEP 4 : MARKER SPECIFICATION
+    # ==================================================================================================================
+
+    marker_spec_1 = mrk.MarkerSpecification(name="MARK-1",
+                                            containerArea="H",
+                                            heightPreference=1,
+                                            heightImportance=1,
+                                            centerPreference=0,
+                                            centerImportance=0,
+                                            neighbourhoodTendencies=["G", "B"],
+                                            tendencyImportance=1)
+
+    marker_spec_2 = mrk.MarkerSpecification(name="MARK-2",
+                                            containerArea="J",
+                                            heightPreference=1,
+                                            heightImportance=0,
+                                            centerPreference=1,
+                                            centerImportance=1,
+                                            neighbourhoodTendencies=[],
+                                            tendencyImportance=0)
+
+    marker_spec_3 = mrk.MarkerSpecification(name="MARK-3",
+                                            containerArea="E",
+                                            heightPreference=0,
+                                            heightImportance=1,
+                                            centerPreference=0,
+                                            centerImportance=0,
+                                            neighbourhoodTendencies=["F"],
+                                            tendencyImportance=1)
 
     # ==================================================================================================================
     # =================================================== GENERATION ===================================================
     # ==================================================================================================================
 
     # ==================================================================================================================
-    # PIPELINE MODULE 1 : LAYOUT EMBEDDING
-    # ==================================================================================================================
-    embedding = jtb.defaultPlanarEmbedding(layout, 0.1)
-
-    # ==================================================================================================================
-    # PIPELINE MODULE 2 : AREA SKELETON GENERATION
-    # ==================================================================================================================
-    skeletons = jtb.generateAreaSkeletonsFromHalfEdges(layout, embedding)
-
-    # ==================================================================================================================
-    # PIPELINE MODULE 3 : CANVAS GENERATION (DIFFERENT IMPLEMENTATIONS)
+    # PIPELINE PROCESS 1 : LAYOUT SKELETON GENERATION
     # ==================================================================================================================
 
-    # canvasGenerator = jtb.SquareGridCanvasGenerator(25, 25)
-    canvasGenerator = jtb.LooseSquareGridCanvasGenerator(25, 25, 0.35)
-    # canvasGenerator = jtb.HexagonGridCanvasGenerator(25, 25)
-    # canvasGenerator = jtb.RandomCanvasGenerator(500)
-    # canvasGenerator = jtb.CircularCanvasGenerator(0.05, 150)
-
-    canvas = canvasGenerator.generate()
+    embedding, skeletons = tbx.generateLayoutSkeletons(layoutSpec=layoutSpec,
+                                                       embeddingMethod=lyt.DefaultEmbedding(),
+                                                       skeletonGenerator=lyt.StraightHalfEdgeSkeletonGenerator())
 
     # ==================================================================================================================
-    # PIPELINE MODULE 4 : PARTITIONING DISTANCE (DIFFERENT IMPLEMENTATIONS)
+    # PIPELINE PROCESS 3 : CANVAS GENERATION
     # ==================================================================================================================
 
-    distanceCalculator = jtb.EuclideanDistanceCalculator()
-    # distanceCalculator = jtb.ManhattanDistanceCalculator()
-    # distanceCalculator = jtb.InfiniteNormDistanceCalculator()
+    # seeds = cnv.SquareGridCanvasGenerator(16, 16).generate()
+    seeds = cnv.LooseSquareCanvasSeedGenerator(16, 16, 0.35).generate()
+    # seeds = cnv.HexagonGridCanvasGenerator(16, 16).generate()
+    # seeds = cnv.RandomCanvasGenerator(256).generate()
+    # seeds = cnv.CircularCanvasGenerator(0.05, 150).generate()
+
+    canvas = cnv.Canvas2D(seeds)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 5 : PARTITIONING
+    # PIPELINE PROCESS 5 : PARTITIONING
     # ==================================================================================================================
 
-    partitions, emptyPartition = jtb.partitionCanvasByAreaSkeletons(canvas, layout, skeletons, distanceCalculator)
+    distanceCalculator = tbx.EuclideanDistanceCalculator()
+    # distanceCalculator = tbx.ManhattanDistanceCalculator()
+    # distanceCalculator = tbx.ChebyshevDistanceCalculator()
+
+    partitions = tbx.partitionCanvasByAreaSkeletons(canvas, layoutSpec, skeletons, distanceCalculator)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 6 : GENERATING HEIGHT MAPS (DIFFERENT IMPLEMENTATIONS)
+    # PIPELINE PROCESS 6 : INFLUENCE CALCULATION
     # ==================================================================================================================
 
-    heightMap = jtb.generateHeightMapFromElevationSettings(128, 128, elevationSettings, partitions)
-    # heightMap = jtb.generateAreaInfluenceMapFromPartitions(partitions, 128, 128)
+    influenceMaps = tbx.generateAreaInfluenceMapFromPartitions(partitions, 0.05, 200, 200)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 7 : GENERATING CLIMATE INFLUENCE MAPS
+    # PIPELINE PROCESS 7 : GENERATING HEIGHT MAPS
     # ==================================================================================================================
-    #climateMaps = jtb.generateClimateInfluenceMapsFromAreaPartitions(128, 128, partitions, climates, climateAssignments)
+
+    heightMap = tbx.generateHeightMapFromElevationSettings(mapWidth=200,
+                                                           mapHeight=200,
+                                                           partitions=partitions,
+                                                           influenceMaps=influenceMaps,
+                                                           heightSettings=heightSettings)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 8 : GENERATING SURFACE MAPS
+    # PIPELINE PROCESS 8 : GENERATING LANDSCAPE INFLUENCE MAPS
     # ==================================================================================================================
-    #surfaceMaps = jtb.generateSurfaceMaps(climateMaps, climates)
+
+    landscapesHeightOrder = ["landscape_0", "landscape_1", "landscape_2", "landscape_3"]
+
+    landscapeGenerator_0 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_0")
+    landscapeGenerator_1 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_1")
+    landscapeGenerator_2 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_2")
+    landscapeGenerator_3 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_3")
+    landscapeGenerator_h = lnd.AreaLandscapeMapsFromHeight(landscapes, influenceMaps, heightMap, landscapesHeightOrder)
+
+    landscapeSetting = {"A": landscapeGenerator_1,
+                        "B": landscapeGenerator_1,
+                        "C": landscapeGenerator_1,
+                        "D": landscapeGenerator_1,
+                        "E": landscapeGenerator_2,
+                        "F": landscapeGenerator_2,
+                        "G": landscapeGenerator_2,
+                        "H": landscapeGenerator_2,
+                        "I": landscapeGenerator_3,
+                        "J": landscapeGenerator_h,
+                        "K": landscapeGenerator_h,
+                        "L": landscapeGenerator_h,
+                        tbx.EMPTY_PART: landscapeGenerator_0}
+
+    landscapeMaps = tbx.generateLandscapeMaps(mapWidth=200,
+                                              mapHeight=200,
+                                              landscapes=landscapes,
+                                              landscapeSettings=landscapeSetting)
 
     # ==================================================================================================================
-    # PIPELINE MODULE 9 : VEGETATION PLACEMENT
+    # PIPELINE PROCESS 9 : GENERATING SURFACE MAPS
     # ==================================================================================================================
-    #vegetationProbabilityMap = jtb.generateVegetationProbabilityMap(climateMaps, climates)
-    #vegetationTypeMaps = jtb.generateVegetationTypeMaps(climateMaps, climates)
-    #vegetationLocations = jtb.generateVegetationLocations(vegetationTypeMaps, vegetationProbabilityMap)
+    surfaceMaps = tbx.generateSurfaceMaps(landscapeMaps=landscapeMaps,
+                                          landscapes=landscapes)
+
+    # ==================================================================================================================
+    # PIPELINE PROCESS 10 : VEGETATION PLACEMENT
+    # ==================================================================================================================
+    vegetationProbabilityMap, vegetationTypeMaps, vegetationLocations = \
+        tbx.placeVegetation(landscapeMaps=landscapeMaps,
+                            landscapes=landscapes)
+
+    # ==================================================================================================================
+    # PIPELINE PROCESS 11 : MARKER PLACEMENT
+    # ==================================================================================================================
+
+    marker_placements = tbx.placeMarkers(markerSpecifications=[marker_spec_1, marker_spec_2, marker_spec_3],
+                                         partitions=partitions,
+                                         heightMap=heightMap)
 
     # ==================================================================================================================
     # ============================================= DEBUG AND VISUALIZATION ============================================
     # ==================================================================================================================
 
     figure, axes = jDraw.creatMapPlot()
-    layoutColoring = jDraw.createColoringSchemeForAreaLayout(layout)
-    vegetationColoring = {"CEDAR": (1, 0, 0), "BUSH": (0, 1, 0), "OAK": (0, 0, 1)}
-    jDraw.addCanvas(axes, canvas, drawCells=True, drawNeighbours=False)
-    jDraw.addAreaLayoutGraph(axes, layout, embedding, drawNeighbourhoods=True)
-    jDraw.addMultiAreaPartitions(axes, partitions, layoutColoring, drawSeeds=False, drawCells=False)
+    layoutColoring = jDraw.createColoringSchemeForAreaLayout(layoutSpec)
+    vegetationColoring = {"CEDAR": ('red', '*'), "BUSH": ('green', 'P'), "OAK": ('blue', 'X')}
     # jDraw.addMultipleAreaSkeletons(axes, skeletons, layoutColoring)
     # jDraw.addSingleMap(axes, vegetationProbabilityMap, 'Greens')
-    # jDraw.addSingleMap(axes, climateMaps["climate_1"], 'Greys')
-    # jDraw.AddMultipleMaps(axes, surfaceMaps, {"GRASS": (0, 0.5, 0), "MUD": (0.62, 0.32, 0.17)})
+    # jDraw.addSingleMap(axes, landscapeMaps["landscape_1"], 'Greys')
+    # jDraw.AddMultipleMaps(axes, surfaceMaps, {"NONE": (0, 0, 0),
+    #                                           "SNOW": (1, 1, 1),
+    #                                           "GRASS": (0, 0.5, 0),
+    #                                           "MUD": (0.62, 0.32, 0.17)})
     # jDraw.AddMultipleMaps(axes, vegetationTypeMaps, vegetationColoring)
-    # jDraw.addDictionaryOfLocations(axes, vegetationLocations, vegetationColoring, 128, 128)
+    # jDraw.addDictionaryOfLocations(axes, vegetationLocations, vegetationColoring, 200, 200)
+
+    jDraw.addSingleMap(axes, heightMap, 'gist_earth', True)
+
+    # jDraw.addCanvas(axes, canvas, drawCells=True, drawNeighbours=False)
+    # jDraw.addMultiAreaPartitions(axes, partitions, layoutColoring, drawSeeds=False, drawCells=False)
+    jDraw.addAreaLayoutGraph(axes, layoutSpec, embedding, drawNeighbourhoods=True)
+
+    # jDraw.addDictionaryOfLabeledLocations(axes, marker_placements, 128, 128)
 
     jDraw.showMap("PLOT")
-    jDraw.showHeightMap(heightMap)
+    # jDraw.showHeightMap(heightMap)
