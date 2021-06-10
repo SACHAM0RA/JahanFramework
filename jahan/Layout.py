@@ -284,12 +284,32 @@ class DefaultEmbedding(PlanarEmbeddingMethod):
             # ugly planar layout
             # A Linear-time Algorithm for Drawing a Planar Graph on a Grid 1989
             # http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.51.6677
-            pos = nx.planar_layout(G, scale=len(layoutSpec))
+            initial_pos = nx.planar_layout(G, scale=len(layoutSpec))
 
             # expanding the ugly embedding and make it a bit more beautiful
             # Force-directed graph drawing
             # Fruchterman–Reingold algorithm
-            pos = nx.spring_layout(G, pos=pos, iterations=self.__iteration, scale=len(layoutSpec))
+            pos = nx.spring_layout(G, pos=initial_pos, iterations=self.__iteration, scale=len(layoutSpec))
+
+            def getEdge(connection, positions) -> Segment2D:
+                a = connection[0]
+                b = connection[1]
+                pos_a = list(positions[a])
+                pos_b = list(positions[b])
+                return Segment2D(Vector2D_fromList(pos_a), Vector2D_fromList(pos_b))
+
+            def isPlanar(positions) -> bool:
+                for connection_1 in layoutSpec.neighbourhoods:
+                    edge_1 = getEdge(connection_1, positions)
+                    for connection_2 in layoutSpec.neighbourhoods:
+                        if connection_1 != connection_2:
+                            edge_2 = getEdge(connection_2, positions)
+                            if edge_1.doesIntersect(edge_2):
+                                return False
+                return True
+
+            while not isPlanar(pos):
+                pos = nx.spring_layout(G, pos=pos, iterations=self.__iteration, scale=len(layoutSpec))
 
             embedding: Dict[string, Vector2D] = {}
             for area in layoutSpec.areas:

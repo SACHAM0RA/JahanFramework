@@ -150,6 +150,25 @@ class Segment2D:
     def reverse(self):
         self.start, self.end = self.end, self.start
 
+    def doesIntersect(self, other):
+        self_min_x = min(self.start.X, self.end.X)
+        self_max_x = max(self.start.X, self.end.X)
+        self_min_y = min(self.start.Y, self.end.Y)
+        self_max_y = max(self.start.Y, self.end.Y)
+
+        other_min_x = min(other.start.X, other.end.X)
+        other_max_x = max(other.start.X, other.end.X)
+        other_min_y = min(other.start.Y, other.end.Y)
+        other_max_y = max(other.start.Y, other.end.Y)
+
+        x_check = other_min_x < self_max_x < other_max_x or \
+                  self_min_x < other_max_x < self_max_x
+
+        y_check = other_min_y < self_max_y < other_max_y or \
+                  self_min_y < other_max_y < self_max_y
+
+        return x_check and y_check
+
     @property
     def asList(self):
         return [self.start.asList, self.end.asList]
