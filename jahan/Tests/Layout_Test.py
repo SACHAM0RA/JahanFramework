@@ -36,7 +36,7 @@ stretchWeights = {"A": 1,
                   "D": 1,
                   "E": 1,
                   "F": 1,
-                  "G": 2,
+                  "G": 1,
                   "H": 1,
                   "I": 1,
                   "J": 1,
@@ -56,10 +56,10 @@ jDraw.showMultiMap(["PLANAR EMBEDDING", "AREA SKELETONS"], axs)
 
 squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
 hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()
-radialSeeds = cnv.RadialCanvasSeedGenerator(0.5, 150).generate()
+radialSeeds = cnv.RadialCanvasSeedGenerator(0.1, 75).generate()
 loosSeeds = cnv.LooseSquareCanvasSeedGenerator(20, 20, 0.33).generate()
-randSeeds = cnv.UniformRandomCanvasSeedGenerator(400).generate()
-canvas = cnv.Canvas2D(squareSeeds)
+randSeeds = cnv.UniformRandomCanvasSeedGenerator(200).generate()
+canvas = cnv.Canvas2D(loosSeeds)
 
 boundRadiusValues = {"A": 1,
                      "B": 1,
@@ -67,46 +67,54 @@ boundRadiusValues = {"A": 1,
                      "D": 1,
                      "E": 1,
                      "F": 1,
-                     "G": 0.05,
+                     "G": 1,
                      "H": 1,
                      "I": 1,
                      "J": 1,
                      "K": 1,
                      "L": 1}
 
-partitions_ecu = tbx.partitionCanvasByAreaSkeletons(canvas=canvas,
-                                                    layoutSpec=layoutSpec,
-                                                    skeletons=skeletons,
-                                                    BoundRadiusValues=boundRadiusValues,
-                                                    distanceFunction=tbx.EuclideanDistanceCalculator())
+polygons_ecu = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
+                                                     layoutSpec=layoutSpec,
+                                                     skeletons=skeletons,
+                                                     BoundRadiusValues=boundRadiusValues,
+                                                     distanceFunction=tbx.EuclideanDistanceCalculator())
 
-partitions_man = tbx.partitionCanvasByAreaSkeletons(canvas=canvas,
-                                                    layoutSpec=layoutSpec,
-                                                    skeletons=skeletons,
-                                                    BoundRadiusValues=boundRadiusValues,
-                                                    distanceFunction=tbx.ManhattanDistanceCalculator())
+polygons_man = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
+                                                     layoutSpec=layoutSpec,
+                                                     skeletons=skeletons,
+                                                     BoundRadiusValues=boundRadiusValues,
+                                                     distanceFunction=tbx.ManhattanDistanceCalculator())
 
-partitions_che = tbx.partitionCanvasByAreaSkeletons(canvas=canvas,
-                                                    layoutSpec=layoutSpec,
-                                                    skeletons=skeletons,
-                                                    BoundRadiusValues=boundRadiusValues,
-                                                    distanceFunction=tbx.ChebyshevDistanceCalculator())
-partitions = partitions_ecu
+polygons_che = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
+                                                     layoutSpec=layoutSpec,
+                                                     skeletons=skeletons,
+                                                     BoundRadiusValues=boundRadiusValues,
+                                                     distanceFunction=tbx.ChebyshevDistanceCalculator())
+polygons = polygons_ecu
+
+_, axes = jDraw.creatMapPlot()
+jDraw.addAreaLayoutGraph(axes, layoutSpec, embedding, drawNeighbourhoods=True)
+jDraw.showMap("PLANAR EMBEDDING")
+
+_, axes = jDraw.creatMapPlot()
+jDraw.addMultipleAreaSkeletons(axes, skeletons, layoutColoring)
+jDraw.showMap("AREA SKELETONS")
 
 _, axes = jDraw.creatMapPlot()
 jDraw.addCanvas(axes, canvas, drawCells=True, drawNeighbours=False, pointColor=(0, 0, 0, 0.25))
-jDraw.addMultiAreaPartitions(axes, partitions_ecu, layoutColoring, drawSeeds=True, drawCells=True)
+jDraw.addMultiAreaPolygons(axes, polygons_ecu, layoutColoring, drawSeeds=True, drawCells=True)
 jDraw.addAreaLayoutGraph(axes, layoutSpec, embedding, drawNeighbourhoods=True)
 jDraw.showMap("EUCLIDEAN DISTANCE")
 
 _, axes = jDraw.creatMapPlot()
 jDraw.addCanvas(axes, canvas, drawCells=True, drawNeighbours=False, pointColor=(0, 0, 0, 0.25))
-jDraw.addMultiAreaPartitions(axes, partitions_man, layoutColoring, drawSeeds=True, drawCells=True)
+jDraw.addMultiAreaPolygons(axes, polygons_man, layoutColoring, drawSeeds=True, drawCells=True)
 jDraw.addAreaLayoutGraph(axes, layoutSpec, embedding, drawNeighbourhoods=True)
 jDraw.showMap("MANHATTAN DISTANCE")
 
 _, axes = jDraw.creatMapPlot()
 jDraw.addCanvas(axes, canvas, drawCells=True, drawNeighbours=False, pointColor=(0, 0, 0, 0.25))
-jDraw.addMultiAreaPartitions(axes, partitions_che, layoutColoring, drawSeeds=True, drawCells=True)
+jDraw.addMultiAreaPolygons(axes, polygons_che, layoutColoring, drawSeeds=True, drawCells=True)
 jDraw.addAreaLayoutGraph(axes, layoutSpec, embedding, drawNeighbourhoods=True)
 jDraw.showMap("CHEBYSHEV DISTANCE")

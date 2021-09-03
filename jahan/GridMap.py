@@ -177,7 +177,10 @@ def normalizeGridMapValues(m: GridMap) -> GridMap:
     values = m.exportValues()
     upper = max(values)
     lower = min(values)
-    normalValues = [(v - lower) / (upper - lower) for v in values]
+    if (upper - lower) != 0:
+        normalValues = [(v - lower) / (upper - lower) for v in values]
+    else:
+        normalValues = [0.0]*len(values)
     newMap = GridMap(m.width, m.height)
     newMap.importValues(normalValues)
     return newMap

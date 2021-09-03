@@ -209,6 +209,7 @@ class LooseSquareCanvasSeedGenerator(CanvasSeedGenerator):
         self.__looseness = looseness
 
     def generate(self) -> list:
+        rnd.seed()
         points = []
         dx: float = 1 / self.__w
         dy: float = 1 / self.__h
@@ -269,6 +270,7 @@ class UniformRandomCanvasSeedGenerator(CanvasSeedGenerator):
         self.__seedCount = seedCount
 
     def generate(self) -> list:
+        rnd.seed()
         points = []
         for i in range(self.__seedCount):
             x = rnd.random()

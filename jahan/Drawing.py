@@ -1,14 +1,14 @@
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
-from jahan.Landscape import NO_VEG_KEY
+from jahan.Landscape import NONE_ITEM_KEY
 from jahan.Layout import *
 from jahan.GridMap import *
 from jahan.Canvas import *
 from typing import Dict
 
 # MISC. ================================================================================================================
-from jahan.Toolbox import EMPTY_PART
+from jahan.Toolbox import EMPTY_POLY
 
 palette = \
     [
@@ -141,7 +141,7 @@ def addCanvas(axes, canvas: Canvas2D,
               drawCells: bool = True,
               drawNeighbours: bool = False,
               pointColor=(0, 0, 0, 1),
-              neighbourColor=(1, 0, 0, 0.25)):
+              neighbourColor=(1, 0, 0, 1)):
     for point in canvas.Seeds:
         if drawNeighbours:
             neighbours = canvas.getNeighboursOfSeed(point)
@@ -159,7 +159,7 @@ def createColoringSchemeForAreaLayout(layout: AreaLayoutSpecification) -> dict:
     scheme = {}
     for index in range(len(layout)):
         scheme[layout.areas[index]] = getColorFormPalette(index)
-    scheme[EMPTY_PART] = (0, 0, 0, 0)
+    scheme[EMPTY_POLY] = (0, 0, 0, 0)
     return scheme
 
 
@@ -197,40 +197,40 @@ def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: dict
         addAreaSkeletonsText(axes, skeleton)
 
 
-def addAreaPartition(axes, partition: AreaPartition,
-                     color=(1, 0, 0),
-                     drawSeeds: bool = False,
-                     drawCells: bool = False):
+def addAreaPolygon(axes, polygon: AreaPolygon,
+                   color=(1, 0, 0),
+                   drawSeeds: bool = False,
+                   drawCells: bool = False):
     bColor = BrightenColor(color, 0.75)
 
     if drawCells:
-        for poly in partition.cells:
+        for poly in polygon.cells:
             addOutlinePolygon(axes, poly, color, bColor)
 
     if drawSeeds:
-        for seed in partition.seeds:
+        for seed in polygon.seeds:
             addCircle(axes, seed, 0.005, color)
 
-    addSegmentList(axes, partition.superCellSegments, (0.1, 0.1, 0.1), width=2)
+    addSegmentList(axes, polygon.superCellSegments, (0.1, 0.1, 0.1), width=2)
 
 
-def addMultiAreaPartitions(axes,
-                           partitions: Dict[str, AreaPartition],
-                           coloring,
-                           drawSeeds: bool = True,
-                           drawCells: bool = True):
-    for area in partitions.keys():
-        if area != EMPTY_PART:
+def addMultiAreaPolygons(axes,
+                         polygons: Dict[str, AreaPolygon],
+                         coloring,
+                         drawSeeds: bool = True,
+                         drawCells: bool = True):
+    for area in polygons.keys():
+        if area != EMPTY_POLY:
 
             if coloring is None:
                 color = (0.75, 0.75, 0.75)
             else:
                 color = coloring[area]
 
-            addAreaPartition(axes,
-                             partitions[area],
-                             color,
-                             drawSeeds, drawCells)
+            addAreaPolygon(axes,
+                           polygons[area],
+                           color,
+                           drawSeeds, drawCells)
 
 
 def addSingleMap(axes, gridMap: GridMap, colorMap, contour: bool = False, colorBar: bool = False):
@@ -300,7 +300,7 @@ def AddMultipleMaps(axes, maps: Dict, coloring: Dict, legend: bool = True):
     if legend:
         handles = []
         for key in coloring.keys():
-            if not (key in ["NONE", EMPTY_PART]):
+            if not (key in ["NONE", EMPTY_POLY]):
                 handle = mlines.Line2D([],
                                        [],
                                        color=coloring[key],
@@ -329,10 +329,10 @@ def addSingleLocationList(axes, locations: list, color, marker, mapWidth: float,
 def addDictionaryOfLocations(axes, locationLists: dict, coloring, mapWidth: float, mapHeight: float):
     handles = []
     for key in locationLists.keys():
-        if key != NO_VEG_KEY:
+        if key != NONE_ITEM_KEY:
             addSingleLocationList(axes, locationLists[key], coloring[key][0], coloring[key][1], mapWidth, mapHeight)
 
-            if not (key in ["NONE", EMPTY_PART]):
+            if not (key in ["NONE", EMPTY_POLY]):
                 handle = mlines.Line2D([],
                                        [],
                                        color=coloring[key][0],

@@ -10,7 +10,7 @@ from jahan.VectorArithmetic import Vector2D
 # General Stuff
 # ======================================================================================================================
 
-EMPTY_PART = "EMPTY_PARTITION"
+EMPTY_POLY = "EMPTY_POLYGON"
 
 DESIRED_HEIGHT: int = 0
 FADE_RADIUS: int = 1
@@ -34,28 +34,28 @@ def generate_2d_mesh(mapWidth, mapHeight):
 # ======================================================================================================================
 
 class findContainingAreaForPixel(object):
-    def __init__(self, partitions: dict):
-        self.partitions = partitions
+    def __init__(self, polygons: dict):
+        self.polygons = polygons
 
     def __call__(self, p):
-        container = EMPTY_PART
+        container = EMPTY_POLY
         pixel = Vector2D(p[0], p[1])
-        for areaName in self.partitions.keys():
-            if areaName != EMPTY_PART and self.partitions[areaName].containsPoint(pixel):
+        for areaName in self.polygons.keys():
+            if areaName != EMPTY_POLY and self.polygons[areaName].containsPoint(pixel):
                 container = areaName
                 break
         return p, container
 
 
 # ======================================================================================================================
-# Partition Influence
+# Polygon Influence
 # ======================================================================================================================
 
-class calcPartitionInfluenceOnPixel(object):
-    def __init__(self, areaName: string, partitions: dict, areaOfPixels, fadeRadius: float = 0.075):
+class calcPolygonInfluenceOnPixel(object):
+    def __init__(self, areaName: string, polygons: dict, areaOfPixels, fadeRadius: float = 0.075):
         self.areaName = areaName
-        self.partition = partitions[areaName]
-        self.partitions = partitions
+        self.polygon = polygons[areaName]
+        self.polygons = polygons
         self.areaOfPixels = areaOfPixels
         self.fadeRadius = fadeRadius
 
@@ -63,10 +63,10 @@ class calcPartitionInfluenceOnPixel(object):
         areaOfPixel = self.areaOfPixels[p]
         pixel = Vector2D(p[0], p[1])
 
-        if self.areaName == EMPTY_PART:
-            dist = self.partition.findDistanceToClosestBorderSegment(pixel)
+        if self.areaName == EMPTY_POLY:
+            dist = self.polygon.findDistanceToClosestBorderSegment(pixel)
         else:
-            dist = self.partition.findDistanceToPoint(pixel)
+            dist = self.polygon.findDistanceToPoint(pixel)
 
         if areaOfPixel == self.areaName:
             blendValue = 0.5 + 0.5 * min(dist, self.fadeRadius) / self.fadeRadius
@@ -76,25 +76,25 @@ class calcPartitionInfluenceOnPixel(object):
         return easeInOut(blendValue)
 
 
-def generateAreaInfluenceMapFromPartitions(partitions: dict, fadeRadius: float, mapWidth: int, mapHeight: int) -> dict:
-    partitions = copy.deepcopy(partitions)
-    for area in partitions.keys():
-        partitions[area].scalePartition(mapWidth, mapHeight)
+def generateAreaInfluenceMapFromPolygons(polygons: dict, fadeRadius: float, mapWidth: int, mapHeight: int) -> dict:
+    polygons = copy.deepcopy(polygons)
+    for area in polygons.keys():
+        polygons[area].scalePolygon(mapWidth, mapHeight)
 
     maps: Dict[string, GridMap] = {}
-    areaNames = list(partitions.keys())
+    areaNames = list(polygons.keys())
 
     pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
     pool = multiprocessing.Pool(processes=4)
-    findContainingAreaForPixel_callable = findContainingAreaForPixel(partitions)
+    findContainingAreaForPixel_callable = findContainingAreaForPixel(polygons)
     areaOfPixels = dict(pool.map(findContainingAreaForPixel_callable, pixelList))
 
     for areaName in areaNames:
-        calcInfluenceOnPixel_callable = calcPartitionInfluenceOnPixel(areaName,
-                                                                      partitions,
-                                                                      areaOfPixels,
-                                                                      fadeRadius * min(mapWidth, mapHeight))
+        calcInfluenceOnPixel_callable = calcPolygonInfluenceOnPixel(areaName,
+                                                                    polygons,
+                                                                    areaOfPixels,
+                                                                    fadeRadius * min(mapWidth, mapHeight))
 
         influence = list(pool.map(calcInfluenceOnPixel_callable, pixelList))
 
@@ -149,7 +149,7 @@ def generateLayoutSkeletons(layoutSpec: AreaLayoutSpecification,
 
 
 # ======================================================================================================================
-# Canvas Partitioning
+# Polygon generation
 # ======================================================================================================================
 
 def isSeedFarEnoughFromBorders(s, minDistance):
@@ -157,22 +157,22 @@ def isSeedFarEnoughFromBorders(s, minDistance):
            minDistance < 1 - s.X and minDistance < 1 - s.Y
 
 
-def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
-                                   layoutSpec: AreaLayoutSpecification,
-                                   skeletons: List[AreaSkeleton],
-                                   BoundRadiusValues: dict,
-                                   distanceFunction,
-                                   deletionDepth: int = 0) -> (Dict[str, AreaPartition], AreaPartition):
+def GeneratePolygonsFromAreaSkeletons(canvas: Canvas2D,
+                                      layoutSpec: AreaLayoutSpecification,
+                                      skeletons: List[AreaSkeleton],
+                                      BoundRadiusValues: dict,
+                                      distanceFunction,
+                                      deletionDepth: int = 0) -> (Dict[str, AreaPolygon], AreaPolygon):
     for area in layoutSpec.areas:
         if not (area in BoundRadiusValues.keys()):
             BoundRadiusValues[area] = 1
         elif BoundRadiusValues[area] <= 0:
             BoundRadiusValues[area] = 0.00001
 
-    partitions: Dict[str, AreaPartition] = {}
-    emptyPartition: AreaPartition = AreaPartition(EMPTY_PART)
+    polygons: Dict[str, AreaPolygon] = {}
+    emptyPolygon: AreaPolygon = AreaPolygon(EMPTY_POLY)
     for s in skeletons:
-        partitions[s.areaName] = AreaPartition(s.areaName)
+        polygons[s.areaName] = AreaPolygon(s.areaName)
 
     seeds = canvas.Seeds
     for seed in seeds:
@@ -186,21 +186,21 @@ def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
 
         # check if the seed is closer to skeleton than borders.
         # If so, assign it to nearest skeleton.
-        # Otherwise, add it to empty partition.
+        # Otherwise, add it to empty polygon.
         if isSeedFarEnoughFromBorders(seed, scaledMinDist):
             skeleton_index = distances.index(minDist)
             areaName = skeletons[skeleton_index].areaName
 
             if minDist < BoundRadiusValues[areaName]:
-                partitions[areaName].addCell(seed, canvas.getPolygonOfSeed(seed))
+                polygons[areaName].addCell(seed, canvas.getPolygonOfSeed(seed))
             else:
-                emptyPartition.addCell(seed, canvas.getPolygonOfSeed(seed))
+                emptyPolygon.addCell(seed, canvas.getPolygonOfSeed(seed))
         else:
-            emptyPartition.addCell(seed, canvas.getPolygonOfSeed(seed))
+            emptyPolygon.addCell(seed, canvas.getPolygonOfSeed(seed))
 
-    def isSeedInOtherPartitions(seedToCheck: Vector2D, areasToIgnore: list):
-        for a in partitions.keys():
-            if (not (a in areasToIgnore)) and (seedToCheck in partitions[a].seeds):
+    def isSeedInOtherPolygonss(seedToCheck: Vector2D, areasToIgnore: list):
+        for a in polygons.keys():
+            if (not (a in areasToIgnore)) and (seedToCheck in polygons[a].seeds):
                 return True
         return False
 
@@ -214,27 +214,27 @@ def partitionCanvasByAreaSkeletons(canvas: Canvas2D,
                     neighbourCells.add(neighbour_to_add)
         return list(neighbourCells)
 
-    # Move undesired cells to the empty partition
-    postProcessedPartitions = partitions.copy()
-    for area in partitions.keys():
+    # Move undesired cells to the empty polygon
+    postProcessedPolygons = polygons.copy()
+    for area in polygons.keys():
         ignoreList = layoutSpec.getNeighbours(area)
         ignoreList.append(area)
 
-        for seed in partitions[area].seeds:
+        for seed in polygons[area].seeds:
             badCell = False
             neighbours = canvas.getNeighboursOfSeed(seed)
             for n in neighbours:
-                if isSeedInOtherPartitions(n, ignoreList):
+                if isSeedInOtherPolygonss(n, ignoreList):
                     badCell = True
 
             if badCell:
                 to_remove = getNeighbourCellsInDepth(seed, deletionDepth)
                 for c in to_remove:
-                    postProcessedPartitions[area].removeCell(c)
-                    emptyPartition.addCell(c, canvas.getPolygonOfSeed(c))
+                    postProcessedPolygons[area].removeCell(c)
+                    emptyPolygon.addCell(c, canvas.getPolygonOfSeed(c))
 
-    postProcessedPartitions[EMPTY_PART] = emptyPartition
-    return postProcessedPartitions
+    postProcessedPolygons[EMPTY_POLY] = emptyPolygon
+    return postProcessedPolygons
 
 
 # ======================================================================================================================
@@ -296,70 +296,70 @@ def generateSurfaceMaps(landscapeMaps: Dict, landscapes: Dict) -> dict:
 
 
 # ======================================================================================================================
-# Landscape Vegetation
+# Landscape Items
 # ======================================================================================================================
 
-def calcVegetationDensity(x: int, y: int, landscapeMaps: Dict, landscapes: Dict):
+def calcItemetationDensity(x: int, y: int, landscapeMaps: Dict, landscapes: Dict):
     density = 0.0
     for landscapeName in landscapeMaps.keys():
         inf = landscapeMaps[landscapeName].getValue(x, y)
-        density = density + landscapes[landscapeName].vegetationDensity * inf
+        density = density + landscapes[landscapeName].itemDensity * inf
 
     return density
 
 
-def generateVegetationDensityMap(landscapeMaps: Dict, landscapes: Dict) -> GridMap:
+def generateItemDensityMap(landscapeMaps: Dict, landscapes: Dict) -> GridMap:
     mapWidth = (list(landscapeMaps.values()))[0].width
     mapHeight = (list(landscapeMaps.values()))[0].height
 
     pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
-    densities = [calcVegetationDensity(x, y, landscapeMaps, landscapes) for x, y in pixelList]
+    densities = [calcItemetationDensity(x, y, landscapeMaps, landscapes) for x, y in pixelList]
     finalMap = GridMap(mapWidth, mapHeight)
     finalMap.importValues(densities)
     return finalMap
 
 
-def calcVegetationTypeWeight(vegType: string, x: int, y: int, landscapeMaps: Dict, landscapes: Dict):
+def calcItemTypeWeight(itemType: string, x: int, y: int, landscapeMaps: Dict, landscapes: Dict):
     totalWeight = 0.0
     for landscapeName in landscapeMaps.keys():
         inf = landscapeMaps[landscapeName].getValue(x, y)
-        totalWeight = totalWeight + landscapes[landscapeName].getVegetationWeight(vegType) * inf
+        totalWeight = totalWeight + landscapes[landscapeName].getItemWeight(itemType) * inf
 
     return totalWeight
 
 
-def generateVegetationTypeMaps(landscapeMaps: Dict, landscapes: Dict) -> dict:
+def generateItemTypeMaps(landscapeMaps: Dict, landscapes: Dict) -> dict:
     maps: dict = {}
     mapWidth = (list(landscapeMaps.values()))[0].width
     mapHeight = (list(landscapeMaps.values()))[0].height
 
-    # gather up all of the vegetation types
-    vegTypes: set = set()
+    # gather up all of the item types
+    itemTypes: set = set()
     for landscapeName in landscapes.keys():
-        for vegType in landscapes[landscapeName].vegetationTypes.keys():
-            vegTypes.add(vegType)
+        for itemType in landscapes[landscapeName].itemTypes.keys():
+            itemTypes.add(itemType)
 
     pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
-    for vegType in vegTypes:
-        m = [calcVegetationTypeWeight(vegType, x, y, landscapeMaps, landscapes) for x, y in pixelList]
-        maps[vegType] = GridMap(mapWidth, mapHeight)
-        maps[vegType].importValues(m)
-        maps[vegType] = normalizeGridMapValues(maps[vegType])
+    for itemType in itemTypes:
+        m = [calcItemTypeWeight(itemType, x, y, landscapeMaps, landscapes) for x, y in pixelList]
+        maps[itemType] = GridMap(mapWidth, mapHeight)
+        maps[itemType].importValues(m)
+        maps[itemType] = normalizeGridMapValues(maps[itemType])
 
     return normalizeGridMaps(maps)
 
 
-def assignVegetation(x: int, y: int, vegTypeMaps: dict, vegetationDensityMap: GridMap):
-    chanceOfVegetation = vegetationDensityMap.getValue(x, y)
+def assignItem(x: int, y: int, itemTypeMaps: dict, itemDensityMap: GridMap):
+    chanceOfItem = itemDensityMap.getValue(x, y)
     r = rnd.random()
-    if r < chanceOfVegetation:
+    if r < chanceOfItem:
         typeRand = rnd.random()
-        for vegType in vegTypeMaps.keys():
-            typeChance = vegTypeMaps[vegType].getValue(x, y)
+        for itemType in itemTypeMaps.keys():
+            typeChance = itemTypeMaps[itemType].getValue(x, y)
             if typeRand <= typeChance:
-                return x, y, vegType
+                return x, y, itemType
             else:
                 typeRand = typeRand - typeChance
         return x, y, None
@@ -367,17 +367,17 @@ def assignVegetation(x: int, y: int, vegTypeMaps: dict, vegetationDensityMap: Gr
         return x, y, None
 
 
-def generateVegetationLocations(vegTypeMaps: dict, vegetationDensityMap: GridMap) -> dict:
-    mapWidth = (list(vegTypeMaps.values()))[0].width
-    mapHeight = (list(vegTypeMaps.values()))[0].height
+def generateItemLocations(itemTypeMaps: dict, itemDensityMap: GridMap) -> dict:
+    mapWidth = (list(itemTypeMaps.values()))[0].width
+    mapHeight = (list(itemTypeMaps.values()))[0].height
 
     pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
     locations: dict = {}
-    assignments = [assignVegetation(x, y, vegTypeMaps, vegetationDensityMap) for x, y in pixelList]
+    assignments = [assignItem(x, y, itemTypeMaps, itemDensityMap) for x, y in pixelList]
 
-    for vegType in vegTypeMaps.keys():
-        locations[vegType] = [[assign[0], assign[1]] for assign in assignments if assign[2] == vegType]
+    for itemType in itemTypeMaps.keys():
+        locations[itemType] = [[assign[0], assign[1]] for assign in assignments if assign[2] == itemType]
     return locations
 
 
@@ -400,11 +400,11 @@ def generateLandscapeData(landscapes: dict,
 
     surfaceMaps = generateSurfaceMaps(landscapeMaps=landscapeMaps, landscapes=landscapes)
 
-    vegetationDensityMap = generateVegetationDensityMap(landscapeMaps, landscapes)
-    vegetationTypeMaps = generateVegetationTypeMaps(landscapeMaps, landscapes)
-    vegetationLocations = generateVegetationLocations(vegetationTypeMaps, vegetationDensityMap)
+    itemDensityMap = generateItemDensityMap(landscapeMaps, landscapes)
+    itemTypeMaps = generateItemTypeMaps(landscapeMaps, landscapes)
+    itemLocations = generateItemLocations(itemTypeMaps, itemDensityMap)
 
-    return landscapeMaps, surfaceMaps, vegetationDensityMap, vegetationTypeMaps, vegetationLocations
+    return landscapeMaps, surfaceMaps, itemDensityMap, itemTypeMaps, itemLocations
 
 
 # ======================================================================================================================
@@ -420,17 +420,17 @@ def calcHeightOfPixelFromPartialHeightMaps(x: int, y: int, influenceMaps: dict, 
 
 def generateHeightMapFromElevationSettings(mapWidth: int,
                                            mapHeight: int,
-                                           partitions: dict,
+                                           polygons: dict,
                                            influenceMaps: dict,
                                            heightSettings: dict) -> GridMap:
     partialHeightMaps: dict = {}
-    scaledPartitions = copy.deepcopy(partitions)
-    for area in scaledPartitions.keys():
-        scaledPartitions[area].scalePartition(mapWidth, mapHeight)
+    scaledPolygons = copy.deepcopy(polygons)
+    for area in scaledPolygons.keys():
+        scaledPolygons[area].scalePolygon(mapWidth, mapHeight)
 
-    for area in scaledPartitions.keys():
-        partialHeightMaps[area] = heightSettings[area].heightMapForPartition(scaledPartitions[area], mapWidth,
-                                                                             mapHeight)
+    for area in scaledPolygons.keys():
+        partialHeightMaps[area] = heightSettings[area].heightMapForPolygon(scaledPolygons[area], mapWidth,
+                                                                           mapHeight)
 
     pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
@@ -446,9 +446,9 @@ def generateHeightMapFromElevationSettings(mapWidth: int,
 # Marker Placement
 # ======================================================================================================================
 
-def placeMarkers(markerSpecifications: list, partitions: list, heightMap: GridMap):
+def placeMarkers(markerSpecifications: list, polygons: list, heightMap: GridMap):
     placements = {}
     for spec in markerSpecifications:
-        placements[spec.name] = spec.placeMarker(partitions, heightMap)
+        placements[spec.name] = spec.placeMarker(polygons, heightMap)
 
     return placements

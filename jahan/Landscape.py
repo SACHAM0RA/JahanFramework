@@ -5,8 +5,9 @@ import string
 
 from jahan.GridMap import GridMap, normalizeGridMaps, normalizeGridMapValues, mulGrids
 
-NO_VEG_KEY = "NO_VEG"
-NO_VEG: dict = {NO_VEG_KEY: 4096}
+NONE_ITEM_KEY = "NONE_ITEM"
+NONE_ITEM: dict = {NONE_ITEM_KEY: 4096}
+
 
 def easeInOut(x: float):
     if x < 0.5:
@@ -21,7 +22,7 @@ def generate_2d_mesh(mapWidth, mapHeight):
     return ret
 
 
-class AreaLandscapeMapGenerator:
+class LandscapeMapGenerator:
     def __init__(self):
         pass
 
@@ -35,7 +36,7 @@ class AreaLandscapeMapGenerator:
         pass
 
 
-class AreaLandscapeMapsFromAssignment(AreaLandscapeMapGenerator):
+class SingleProfileLandscapeGenerator(LandscapeMapGenerator):
     def __init__(self, desiredLandscapeName: string):
         super().__init__()
         self.__desiredLandscapeName = desiredLandscapeName
@@ -78,7 +79,7 @@ class calcLandscapeInfluenceOnPixelByHeight:
         return easeInOut(1 - norm)
 
 
-class AreaLandscapeMapsFromHeight(AreaLandscapeMapGenerator):
+class HeightBasedLandscapeGenerator(LandscapeMapGenerator):
     def __init__(self, heightOrder: list):
         super().__init__()
         self.__heightOrder = heightOrder
@@ -95,7 +96,7 @@ class AreaLandscapeMapsFromHeight(AreaLandscapeMapGenerator):
         pixelList = generate_2d_mesh(width, height)
 
         h_min = heightMap.valueMin
-        h_range = heightMap.valueRange
+        h_range = heightMap.profiles
 
         areaInfluence = influenceMaps[areaName]
 
@@ -125,28 +126,28 @@ class AreaLandscapeMapsFromHeight(AreaLandscapeMapGenerator):
 class LandscapeProfile:
     def __init__(self,
                  surfaceType: string,
-                 vegetationDensity: float,
-                 vegetationSetting: dict):
+                 itemDensity: float,
+                 itemTypes: dict):
         self.surfaceType = surfaceType
-        self.vegetationTypes = vegetationSetting
-        self.vegetationDensity = vegetationDensity
+        self.itemTypes = itemTypes
+        self.itemDensity = itemDensity
 
     def __copy__(self):
         return LandscapeProfile(self.surfaceType,
-                                self.vegetationDensity,
-                                self.vegetationTypes)
+                                self.itemDensity,
+                                self.itemTypes)
 
     def __key(self):
-        return self, self.surfaceType, self.vegetationTypes, self.vegetationDensity
+        return self, self.surfaceType, self.itemTypes, self.itemDensity
 
     def __hash__(self):
         return hash(self.__key())
 
-    def hasVegetationType(self, vegType: string):
-        return vegType in self.vegetationTypes.keys()
+    def hasItemType(self, itemType: string):
+        return itemType in self.itemTypes.keys()
 
-    def getVegetationWeight(self, vegType: string):
-        if self.hasVegetationType(vegType):
-            return self.vegetationTypes[vegType]
+    def getItemWeight(self, itemType: string):
+        if self.hasItemType(itemType):
+            return self.itemTypes[itemType]
         else:
             return 0.0

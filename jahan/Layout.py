@@ -93,7 +93,7 @@ class AreaSkeleton:
 # ======================================================================================================================
 
 
-class AreaPartition:
+class AreaPolygon:
     __areaName: string
     __canvasSeeds: List = []  # List of Vectors
     __canvasCells: List = []  # list of list of Vectors, each list is one polygon
@@ -108,7 +108,7 @@ class AreaPartition:
         self.__canvasCells = []
 
     def __copy__(self):
-        cp = AreaPartition(self.areaName)
+        cp = AreaPolygon(self.areaName)
         for i in range(len(self.__canvasSeeds)):
             cp.addCell(copy.copy(self.__canvasSeeds[i]),
                        copy.copy(self.__canvasCells[i]))
@@ -213,7 +213,7 @@ class AreaPartition:
         polygon = self.superCellPoints
         return [p.asList for p in polygon]
 
-    def scalePartition(self, x_scale: int, y_scale: int):
+    def scalePolygon(self, x_scale: int, y_scale: int):
         scale = Vector2D(x_scale, y_scale)
         for i in range(len(self.__canvasSeeds)):
             self.__canvasSeeds[i] = self.__canvasSeeds[i] * scale
@@ -271,8 +271,9 @@ class PlanarEmbeddingMethod:
 
 
 class DefaultEmbedding(PlanarEmbeddingMethod):
-    def __init__(self, iteration: int = 10000):
+    def __init__(self, iteration: int = 10000, applyForceDirected: bool = True):
         self.__iteration = iteration
+        self.__applyForceDirected = applyForceDirected
 
     def _calculateRawPositions(self, layoutSpec: AreaLayoutSpecification) -> dict:
         G = layoutSpec.networkxGraph
@@ -290,26 +291,27 @@ class DefaultEmbedding(PlanarEmbeddingMethod):
             # Force-directed graph drawing
             # Fruchterman–Reingold algorithm
             pos = nx.spring_layout(G, pos=initial_pos, iterations=self.__iteration, scale=len(layoutSpec))
+            if self.__applyForceDirected:
 
-            def getEdge(connection, positions) -> Segment2D:
-                a = connection[0]
-                b = connection[1]
-                pos_a = list(positions[a])
-                pos_b = list(positions[b])
-                return Segment2D(Vector2D_fromList(pos_a), Vector2D_fromList(pos_b))
+                def getEdge(connection, positions) -> Segment2D:
+                    a = connection[0]
+                    b = connection[1]
+                    pos_a = list(positions[a])
+                    pos_b = list(positions[b])
+                    return Segment2D(Vector2D_fromList(pos_a), Vector2D_fromList(pos_b))
 
-            def isPlanar(positions) -> bool:
-                for connection_1 in layoutSpec.neighbourhoods:
-                    edge_1 = getEdge(connection_1, positions)
-                    for connection_2 in layoutSpec.neighbourhoods:
-                        if connection_1 != connection_2:
-                            edge_2 = getEdge(connection_2, positions)
-                            if edge_1.doesIntersect(edge_2):
-                                return False
-                return True
+                def isPlanar(positions) -> bool:
+                    for connection_1 in layoutSpec.neighbourhoods:
+                        edge_1 = getEdge(connection_1, positions)
+                        for connection_2 in layoutSpec.neighbourhoods:
+                            if connection_1 != connection_2:
+                                edge_2 = getEdge(connection_2, positions)
+                                if edge_1.doesIntersect(edge_2):
+                                    return False
+                    return True
 
-            while not isPlanar(pos):
-                pos = nx.spring_layout(G, pos=pos, iterations=self.__iteration, scale=len(layoutSpec))
+                while not isPlanar(pos):
+                    pos = nx.spring_layout(G, pos=pos, iterations=self.__iteration, scale=len(layoutSpec))
 
             embedding: Dict[string, Vector2D] = {}
             for area in layoutSpec.areas:

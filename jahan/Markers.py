@@ -2,7 +2,7 @@ import string
 from copy import deepcopy
 
 from jahan.GridMap import GridMap
-from jahan.Layout import AreaPartition
+from jahan.Layout import AreaPolygon
 from jahan.VectorArithmetic import Vector2D
 import numpy as np
 
@@ -14,11 +14,11 @@ class MarkerSpecification:
                  heightImportance: float,
                  centerPreference: float,
                  centerImportance: float,
-                 neighbourhoodTendencies: list,
-                 tendencyImportance: float):
+                 effectorAreas: list,
+                 effectorImportance: float):
 
-        if neighbourhoodTendencies is None:
-            neighbourhoodTendencies = {}
+        if effectorAreas is None:
+            effectorAreas = {}
 
         self.__name = name
         self.__containerArea = containerArea
@@ -26,8 +26,8 @@ class MarkerSpecification:
         self.__heightImp = heightImportance
         self.__centerPref = centerPreference
         self.__centerImp = centerImportance
-        self.__neighbourhoodTendencies = neighbourhoodTendencies
-        self.__tendencyImp = tendencyImportance
+        self.__effectorAreas = effectorAreas
+        self.__effectorImp = effectorImportance
 
     @property
     def name(self):
@@ -42,25 +42,25 @@ class MarkerSpecification:
         return self.__heightPref
 
     def placeMarker(self,
-                    partitions: dict,
+                    polygons: dict,
                     heightMap: GridMap):
 
-        if not (self.__containerArea in partitions.keys()):
-            raise Exception("{} is not among given partitions".format(self.__containerArea))
+        if not (self.__containerArea in polygons.keys()):
+            raise Exception("{} is not among given polygons".format(self.__containerArea))
 
         heightMap = deepcopy(heightMap)
 
         w = heightMap.width
         h = heightMap.height
 
-        partitions = deepcopy(partitions)
-        for area in partitions.keys():
-            partitions[area].scalePartition(w, h)
+        polygons = deepcopy(polygons)
+        for area in polygons.keys():
+            polygons[area].scalePolygon(w, h)
 
-        container_partition: AreaPartition = partitions[self.__containerArea]
+        container_polygon: AreaPolygon = polygons[self.__containerArea]
 
-        candidates = container_partition.seeds
-        center_of_mass: Vector2D = container_partition.centerOfMass
+        candidates = container_polygon.seeds
+        center_of_mass: Vector2D = container_polygon.centerOfMass
 
         heights = [heightMap.getValue(c.X, c.Y) for c in candidates]
         min_H = np.nanmin(heights)
@@ -84,12 +84,12 @@ class MarkerSpecification:
 
         def DistanceSum(c: Vector2D):
 
-            if len(self.__neighbourhoodTendencies) == 0:
+            if len(self.__effectorAreas) == 0:
                 return 0.0
 
             dist = 0.0
-            for areaName in self.__neighbourhoodTendencies:
-                dist = dist + partitions[areaName].findDistanceToPoint(c)
+            for areaName in self.__effectorAreas:
+                dist = dist + polygons[areaName].findDistanceToPoint(c)
             return dist
 
         tendencies = [DistanceSum(c) for c in candidates]
@@ -103,7 +103,7 @@ class MarkerSpecification:
 
         penalties = [self.__heightImp * H_penalty[i] +
                      self.__centerImp * D_penalty[i] +
-                     self.__tendencyImp * T_penalty[i]
+                     self.__effectorImp * T_penalty[i]
                      for i in range(len(candidates))]
         min_penalty = np.nanmin(penalties)
         index = penalties.index(min_penalty)

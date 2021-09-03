@@ -1,6 +1,6 @@
 import itertools
 
-from jahan.Layout import AreaPartition
+from jahan.Layout import AreaPolygon
 from jahan.GridMap import GridMap, addGrids
 import jahan.Noise2D as noise2d
 from jahan.VectorArithmetic import Vector2D
@@ -18,7 +18,7 @@ def generate_2d_mesh(mapWidth, mapHeight):
 # ===========================================
 
 class HeightFoundation:
-    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+    def __call__(self, polygon: AreaPolygon, mapWidth: int, mapHeight: int) -> GridMap:
         return GridMap(mapWidth, mapHeight)
 
 
@@ -26,20 +26,20 @@ class Flat_HeightFoundation(HeightFoundation):
     def __init__(self, flatHeight: float):
         self.__H = flatHeight
 
-    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+    def __call__(self, polygon: AreaPolygon, mapWidth: int, mapHeight: int) -> GridMap:
         heightMap = GridMap(mapWidth, mapHeight)
         heightMap.importValues([self.__H] * mapWidth * mapHeight)
         return heightMap
 
 
-class getSignedDistanceOfPixelToAreaPartition:
-    def __init__(self, partition: AreaPartition):
-        self.partition = partition
+class getSignedDistanceOfPixelToAreaPolygon:
+    def __init__(self, polygon: AreaPolygon):
+        self.polygon = polygon
 
     def __call__(self, p):
         pixel = Vector2D(p[0], p[1])
-        absDist = self.partition.findDistanceToPoint(pixel)
-        if self.partition.containsPoint(pixel):
+        absDist = self.polygon.findDistanceToPoint(pixel)
+        if self.polygon.containsPoint(pixel):
             return -1 * absDist
         else:
             return absDist
@@ -51,11 +51,11 @@ class SDF_HeightFoundation(HeightFoundation):
         self.__minH = min(minHeight, maxHeight)
         self.__maxH = max(minHeight, maxHeight)
 
-    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+    def __call__(self, polygon: AreaPolygon, mapWidth: int, mapHeight: int) -> GridMap:
         pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
         pool = multiprocessing.Pool(processes=4)
-        pixelDistanceValues = list(pool.map(getSignedDistanceOfPixelToAreaPartition(partition), pixelList))
+        pixelDistanceValues = list(pool.map(getSignedDistanceOfPixelToAreaPolygon(polygon), pixelList))
 
         absoluteMinDist = abs(min(pixelDistanceValues))
         pixelDistanceValues = [d / absoluteMinDist for d in pixelDistanceValues]
@@ -78,9 +78,9 @@ def ease(x: float):
 
 
 class distance_from_point:
-    def __init__(self, center_of_mass, partition, applyEasing=False):
+    def __init__(self, center_of_mass, polygon, applyEasing=False):
         self.center_of_mass = center_of_mass
-        self.max_seed_dist = max([(self.center_of_mass - s).length for s in partition.seeds])
+        self.max_seed_dist = max([(self.center_of_mass - s).length for s in polygon.seeds])
         self.applyEasing = applyEasing
 
     def __call__(self, p):
@@ -97,12 +97,12 @@ class Cone_HeightFoundation(HeightFoundation):
         self.__minH = min(minHeight, maxHeight)
         self.__maxH = max(minHeight, maxHeight)
 
-    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+    def __call__(self, polygon: AreaPolygon, mapWidth: int, mapHeight: int) -> GridMap:
         pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
         pool = multiprocessing.Pool(processes=4)
-        center_of_mass = partition.centerOfMass
-        dist_func = distance_from_point(center_of_mass, partition, False)
+        center_of_mass = polygon.centerOfMass
+        dist_func = distance_from_point(center_of_mass, polygon, False)
         pixelDistanceValues = list(pool.map(dist_func, pixelList))
 
         maxDist = abs(max(pixelDistanceValues))
@@ -124,12 +124,12 @@ class Bell_HeightFoundation(HeightFoundation):
         self.__minH = min(minHeight, maxHeight)
         self.__maxH = max(minHeight, maxHeight)
 
-    def __call__(self, partition: AreaPartition, mapWidth: int, mapHeight: int) -> GridMap:
+    def __call__(self, polygon: AreaPolygon, mapWidth: int, mapHeight: int) -> GridMap:
         pixelList = generate_2d_mesh(mapWidth, mapHeight)
 
         pool = multiprocessing.Pool(processes=4)
-        center_of_mass = partition.centerOfMass
-        dist_func = distance_from_point(center_of_mass, partition, True)
+        center_of_mass = polygon.centerOfMass
+        dist_func = distance_from_point(center_of_mass, polygon, True)
         pixelDistanceValues = list(pool.map(dist_func, pixelList))
 
         maxDist = abs(max(pixelDistanceValues))
@@ -219,8 +219,8 @@ class HeightProfile:
         self.__foundation: HeightFoundation = foundation
         self.__detail = detail
 
-    def heightMapForPartition(self, partition, mapWidth, mapHeight):
-        foundationHeight = self.__foundation(partition, mapWidth, mapHeight)
+    def heightMapForPolygon(self, polygon, mapWidth, mapHeight):
+        foundationHeight = self.__foundation(polygon, mapWidth, mapHeight)
         if self.__detail is not None:
             return addGrids(foundationHeight, self.__detail.generateNoiseMap(mapWidth, mapHeight))
         else:

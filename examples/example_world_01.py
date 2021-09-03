@@ -80,7 +80,7 @@ if __name__ == '__main__':
                       "J": heightProfile_2,
                       "K": heightProfile_3,
                       "L": heightProfile_4,
-                      tbx.EMPTY_PART: heightProfile_0}
+                      tbx.EMPTY_POLY: heightProfile_0}
 
     # ==================================================================================================================
     # SPECIFICATION STEP 3 : LANDSCAPE DEFINITIONS
@@ -101,8 +101,8 @@ if __name__ == '__main__':
                                             heightImportance=1,
                                             centerPreference=0,
                                             centerImportance=0,
-                                            neighbourhoodTendencies=["G", "B"],
-                                            tendencyImportance=1)
+                                            effectorAreas=["G", "B"],
+                                            effectorImportance=1)
 
     marker_spec_2 = mrk.MarkerSpecification(name="MARK-2",
                                             containerArea="J",
@@ -110,8 +110,8 @@ if __name__ == '__main__':
                                             heightImportance=0,
                                             centerPreference=1,
                                             centerImportance=1,
-                                            neighbourhoodTendencies=[],
-                                            tendencyImportance=0)
+                                            effectorAreas=[],
+                                            effectorImportance=0)
 
     marker_spec_3 = mrk.MarkerSpecification(name="MARK-3",
                                             containerArea="E",
@@ -119,8 +119,8 @@ if __name__ == '__main__':
                                             heightImportance=1,
                                             centerPreference=0,
                                             centerImportance=0,
-                                            neighbourhoodTendencies=["F"],
-                                            tendencyImportance=1)
+                                            effectorAreas=["F"],
+                                            effectorImportance=1)
 
     # ==================================================================================================================
     # =================================================== GENERATION ===================================================
@@ -154,13 +154,13 @@ if __name__ == '__main__':
     # distanceCalculator = tbx.ManhattanDistanceCalculator()
     # distanceCalculator = tbx.ChebyshevDistanceCalculator()
 
-    partitions = tbx.partitionCanvasByAreaSkeletons(canvas, layoutSpec, skeletons, distanceCalculator)
+    partitions = tbx.GeneratePolygonsFromAreaSkeletons(canvas, layoutSpec, skeletons, distanceCalculator)
 
     # ==================================================================================================================
     # PIPELINE PROCESS 6 : INFLUENCE CALCULATION
     # ==================================================================================================================
 
-    influenceMaps = tbx.generateAreaInfluenceMapFromPartitions(partitions, 0.05, 200, 200)
+    influenceMaps = tbx.generateAreaInfluenceMapFromPolygons(partitions, 0.05, 200, 200)
 
     # ==================================================================================================================
     # PIPELINE PROCESS 7 : GENERATING HEIGHT MAPS
@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     heightMap = tbx.generateHeightMapFromElevationSettings(mapWidth=200,
                                                            mapHeight=200,
-                                                           partitions=partitions,
+                                                           polygons=partitions,
                                                            influenceMaps=influenceMaps,
                                                            heightSettings=heightSettings)
 
@@ -178,11 +178,11 @@ if __name__ == '__main__':
 
     landscapesHeightOrder = ["landscape_0", "landscape_1", "landscape_2", "landscape_3"]
 
-    landscapeGenerator_0 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_0")
-    landscapeGenerator_1 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_1")
-    landscapeGenerator_2 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_2")
-    landscapeGenerator_3 = lnd.AreaLandscapeMapsFromAssignment(landscapes, influenceMaps, heightMap, "landscape_3")
-    landscapeGenerator_h = lnd.AreaLandscapeMapsFromHeight(landscapes, influenceMaps, heightMap, landscapesHeightOrder)
+    landscapeGenerator_0 = lnd.SingleProfileLandscapeGenerator(landscapes, influenceMaps, heightMap, "landscape_0")
+    landscapeGenerator_1 = lnd.SingleProfileLandscapeGenerator(landscapes, influenceMaps, heightMap, "landscape_1")
+    landscapeGenerator_2 = lnd.SingleProfileLandscapeGenerator(landscapes, influenceMaps, heightMap, "landscape_2")
+    landscapeGenerator_3 = lnd.SingleProfileLandscapeGenerator(landscapes, influenceMaps, heightMap, "landscape_3")
+    landscapeGenerator_h = lnd.HeightBasedLandscapeGenerator(landscapes, influenceMaps, heightMap, landscapesHeightOrder)
 
     landscapeSetting = {"A": landscapeGenerator_1,
                         "B": landscapeGenerator_1,
@@ -196,7 +196,7 @@ if __name__ == '__main__':
                         "J": landscapeGenerator_h,
                         "K": landscapeGenerator_h,
                         "L": landscapeGenerator_h,
-                        tbx.EMPTY_PART: landscapeGenerator_0}
+                        tbx.EMPTY_POLY: landscapeGenerator_0}
 
     landscapeMaps = tbx.generateLandscapeMaps(mapWidth=200,
                                               mapHeight=200,
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     # ==================================================================================================================
 
     marker_placements = tbx.placeMarkers(markerSpecifications=[marker_spec_1, marker_spec_2, marker_spec_3],
-                                         partitions=partitions,
+                                         polygons=partitions,
                                          heightMap=heightMap)
 
     # ==================================================================================================================
