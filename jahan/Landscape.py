@@ -96,7 +96,7 @@ class HeightBasedLandscapeGenerator(LandscapeMapGenerator):
         pixelList = generate_2d_mesh(width, height)
 
         h_min = heightMap.valueMin
-        h_range = heightMap.profiles
+        h_range = heightMap.valueRange
 
         areaInfluence = influenceMaps[areaName]
 
