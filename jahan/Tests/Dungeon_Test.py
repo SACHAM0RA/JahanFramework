@@ -6,8 +6,11 @@ import jahan.Elevation as elv
 import jahan.Markers as mrk
 import jahan.Drawing as jDraw
 from jahan.GridMap import *
+import time
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     layoutSpec = lyt.AreaLayoutSpecification()
     layoutSpec.addArea("S")
     layoutSpec.addArea("F1")
@@ -226,6 +229,10 @@ if __name__ == '__main__':
     marker_placements = tbx.placeMarkers(markerSpecifications=[UB_1, UB_2, UB_3, KEY_A, KEY_B],
                                          polygons=polygons,
                                          heightMap=heightMap)
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("MAP GENERATION TIME: " + str(execution_time))
 
     layoutColoring = jDraw.createColoringSchemeForAreaLayout(layoutSpec)
 

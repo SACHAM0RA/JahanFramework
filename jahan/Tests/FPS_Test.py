@@ -6,8 +6,11 @@ import jahan.Elevation as elv
 import jahan.Markers as mrk
 import jahan.Drawing as jDraw
 from jahan.GridMap import *
+import time
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     layoutSpec = lyt.AreaLayoutSpecification()
     layoutSpec.addArea("BASE-A")
     layoutSpec.addArea("BASE-B")
@@ -156,6 +159,10 @@ if __name__ == '__main__':
                                                                marker_spec_5],
                                          polygons=polygons,
                                          heightMap=heightMap)
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("MAP GENERATION TIME: " + str(execution_time))
 
     layoutColoring = jDraw.createColoringSchemeForAreaLayout(layoutSpec)
 
