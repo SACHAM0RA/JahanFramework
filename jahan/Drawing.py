@@ -87,7 +87,7 @@ def addText(axes, center: Vector2D, inputText: string, color=(0, 0, 0), bold: bo
             bgColor=(0, 0, 0, 0.75), edgeColor=(0, 0, 0, 1), pad=0.3):
     formattedText = inputText
     if bold:
-        formattedText: string = r"$\bf{T}$".format(T=inputText)
+        formattedText: string = r'$\bf {T}$'.format(T=inputText)
 
     textArtist = axes.text(center.X, center.Y,
                            formattedText,
@@ -170,11 +170,11 @@ def addAreaLayoutGraph(axes, layout: AreaLayoutSpecification, embedding, drawNei
         for edge in layout.neighbourhoods:
             addLine(axes, embedding[edge[0]], embedding[edge[1]], color, 2)
 
-    # for area in layout.areas:
-    #     addCircle(axes, embedding[area], size, color)
+    for area in layout.areas:
+         addCircle(axes, embedding[area], 0.04, color)
 
-    #for area in layout.areas:
-    #    addText(axes, embedding[area], area, (1, 1, 1), pad=0.8, fontSize="large")
+    for area in layout.areas:
+        addText(axes, embedding[area], area, (1, 1, 1), pad=0.8, fontSize="large")
 
 
 def addSingleAreaSkeleton(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
@@ -193,8 +193,8 @@ def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: dict
     for skeleton in skeletons:
         addSingleAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
 
-    #for skeleton in skeletons:
-    #    addAreaSkeletonsText(axes, skeleton)
+    for skeleton in skeletons:
+        addAreaSkeletonsText(axes, skeleton)
 
 
 def addAreaPolygon(axes, polygon: AreaPolygon,

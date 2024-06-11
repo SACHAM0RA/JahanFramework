@@ -45,7 +45,7 @@ stretchWeights = {"A": 1,
 
 embedding, skeletons = \
     tbx.generateLayoutSkeletons(layoutSpec=layoutSpec,
-                                embeddingMethod=lyt.DefaultEmbedding(applyForceDirected=False),
+                                embeddingMethod=lyt.DefaultEmbedding(),
                                 skeletonGenerator=lyt.StraightHalfEdgeSkeletonGenerator(stretchWeights))
 
 jDraw.addAreaLayoutGraph(axs[0], layoutSpec, embedding, drawNeighbourhoods=True)
