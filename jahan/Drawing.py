@@ -170,8 +170,8 @@ def addAreaLayoutGraph(axes, layout: AreaLayoutSpecification, embedding, drawNei
         for edge in layout.neighbourhoods:
             addLine(axes, embedding[edge[0]], embedding[edge[1]], color, 2)
 
-    for area in layout.areas:
-         addCircle(axes, embedding[area], 0.04, color)
+    #for area in layout.areas:
+    #     addCircle(axes, embedding[area], 0.04, color)
 
     for area in layout.areas:
         addText(axes, embedding[area], area, (1, 1, 1), pad=0.8, fontSize="large")
