@@ -173,8 +173,8 @@ def addAreaLayoutGraph(axes, layout: AreaLayoutSpecification, embedding, drawNei
     # for area in layout.areas:
     #     addCircle(axes, embedding[area], size, color)
 
-    for area in layout.areas:
-        addText(axes, embedding[area], area, (1, 1, 1), pad=0.8, fontSize="large")
+    #for area in layout.areas:
+    #    addText(axes, embedding[area], area, (1, 1, 1), pad=0.8, fontSize="large")
 
 
 def addSingleAreaSkeleton(axes, skeleton: AreaSkeleton, color=(1, 0, 0)):
@@ -193,8 +193,8 @@ def addMultipleAreaSkeletons(axes, skeletons: List[AreaSkeleton], coloring: dict
     for skeleton in skeletons:
         addSingleAreaSkeleton(axes, skeleton, coloring[skeleton.areaName])
 
-    for skeleton in skeletons:
-        addAreaSkeletonsText(axes, skeleton)
+    #for skeleton in skeletons:
+    #    addAreaSkeletonsText(axes, skeleton)
 
 
 def addAreaPolygon(axes, polygon: AreaPolygon,

@@ -45,14 +45,14 @@ stretchWeights = {"A": 1,
 
 embedding, skeletons = \
     tbx.generateLayoutSkeletons(layoutSpec=layoutSpec,
-                                embeddingMethod=lyt.DefaultEmbedding(),
+                                embeddingMethod=lyt.DefaultEmbedding(applyForceDirected=False),
                                 skeletonGenerator=lyt.StraightHalfEdgeSkeletonGenerator(stretchWeights))
 
 jDraw.addAreaLayoutGraph(axs[0], layoutSpec, embedding, drawNeighbourhoods=True)
 layoutColoring = jDraw.createColoringSchemeForAreaLayout(layoutSpec)
 jDraw.addMultipleAreaSkeletons(axs[1], skeletons, layoutColoring)
 
-jDraw.showMultiMap(["PLANAR EMBEDDING", "AREA SKELETONS"], axs)
+jDraw.showMultiMap(['PLANAR EMBEDDING', 'AREA SKELETONS'], axs)
 
 squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
 hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()

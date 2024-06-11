@@ -290,8 +290,9 @@ class DefaultEmbedding(PlanarEmbeddingMethod):
             # expanding the ugly embedding and make it a bit more beautiful
             # Force-directed graph drawing
             # Fruchterman–Reingold algorithm
-            pos = nx.spring_layout(G, pos=initial_pos, iterations=self.__iteration, scale=len(layoutSpec))
             if self.__applyForceDirected:
+
+                pos = nx.spring_layout(G, pos=initial_pos, iterations=self.__iteration, scale=len(layoutSpec))
 
                 def getEdge(connection, positions) -> Segment2D:
                     a = connection[0]
@@ -312,6 +313,9 @@ class DefaultEmbedding(PlanarEmbeddingMethod):
 
                 while not isPlanar(pos):
                     pos = nx.spring_layout(G, pos=pos, iterations=self.__iteration, scale=len(layoutSpec))
+
+            else:
+                pos = initial_pos
 
             embedding: Dict[string, Vector2D] = {}
             for area in layoutSpec.areas:

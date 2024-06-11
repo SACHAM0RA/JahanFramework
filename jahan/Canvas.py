@@ -107,7 +107,7 @@ class Canvas2D:
 
         self.__neighbours = defaultdict(set)
         tri = Delaunay(pointsAsList, qhull_options="Qw Qt Qj")
-        for p in tri.vertices:
+        for p in tri.simplices:
             for i, j in itertools.combinations(p, 2):
                 self.__neighbours[i].add(j)
                 self.__neighbours[j].add(i)
