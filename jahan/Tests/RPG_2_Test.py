@@ -146,7 +146,7 @@ if __name__ == '__main__':
                                   influenceMaps=influenceMaps,
                                   heightMap=heightMap)
 
-    marker_spec_1 = mrk.MarkerSpecification(name="ORDER_HQ",
+    marker_spec_1 = mrk.MarkerSpecification(name="ORDER-HQ",
                                             containerArea="SHORE",
                                             heightPreference=0,
                                             heightImportance=0,
@@ -155,7 +155,7 @@ if __name__ == '__main__':
                                             effectorAreas=["MOUNTAINS", "JUNGLE"],
                                             effectorImportance=1)
 
-    marker_spec_2 = mrk.MarkerSpecification(name="ARMY_HQ",
+    marker_spec_2 = mrk.MarkerSpecification(name="ARMY-HQ",
                                             containerArea="MOUNTAINS",
                                             heightPreference=1,
                                             heightImportance=1,
@@ -164,7 +164,7 @@ if __name__ == '__main__':
                                             effectorAreas=[],
                                             effectorImportance=0)
 
-    marker_spec_3 = mrk.MarkerSpecification(name="CLAN_HQ",
+    marker_spec_3 = mrk.MarkerSpecification(name="CLAN-HQ",
                                             containerArea="JUNGLE",
                                             heightPreference=0,
                                             heightImportance=0,

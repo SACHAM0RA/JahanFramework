@@ -142,7 +142,7 @@ class ChebyshevDistanceCalculator(DistanceCalculator):
 
 def generateLayoutSkeletons(layoutSpec: AreaLayoutSpecification,
                             embeddingMethod: PlanarEmbeddingMethod,
-                            skeletonGenerator: SkeletonGenerator):
+                            skeletonGenerator: SkeletonGenerator) -> object:
     embedding = embeddingMethod.calculateEmbedding(layoutSpec)
     skeletons = skeletonGenerator.generateSkeleton(embedding, layoutSpec)
     return embedding, skeletons

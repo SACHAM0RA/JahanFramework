@@ -4,49 +4,35 @@ import jahan.Drawing as jDraw
 import jahan.Canvas as cnv
 
 layoutSpec = lyt.AreaLayoutSpecification()
-layoutSpec.addArea("A")
-layoutSpec.addArea("B")
-layoutSpec.addArea("C")
-layoutSpec.addArea("D")
-layoutSpec.addArea("E")
-layoutSpec.addArea("F")
-layoutSpec.addArea("G")
-layoutSpec.addArea("H")
-layoutSpec.addArea("I")
-layoutSpec.addArea("J")
-layoutSpec.addArea("K")
-layoutSpec.addArea("L")
-layoutSpec.connectAreas("A", "C")
-layoutSpec.connectAreas("B", "C")
-layoutSpec.connectAreas("E", "C")
-layoutSpec.connectAreas("E", "F")
-layoutSpec.connectAreas("H", "F")
-layoutSpec.connectAreas("G", "I")
-layoutSpec.connectAreas("G", "H")
-layoutSpec.connectAreas("K", "L")
-layoutSpec.connectAreas("K", "E")
-layoutSpec.connectAreas("L", "C")
-layoutSpec.connectAreas("H", "C")
+layoutSpec.addArea("SHORE")
+layoutSpec.addArea("JUNGLE")
+layoutSpec.addArea("DESERT")
+layoutSpec.addArea("MOUNTAINS")
+layoutSpec.addArea("CITY")
+layoutSpec.addArea("RIVERSIDE")
+
+layoutSpec.connectAreas("SHORE", "DESERT")
+layoutSpec.connectAreas("SHORE", "RIVERSIDE")
+layoutSpec.connectAreas("SHORE", "MOUNTAINS")
+layoutSpec.connectAreas("JUNGLE", "DESERT")
+layoutSpec.connectAreas("DESERT", "CITY")
+layoutSpec.connectAreas("DESERT", "RIVERSIDE")
+layoutSpec.connectAreas("MOUNTAINS", "RIVERSIDE")
+layoutSpec.connectAreas("CITY", "RIVERSIDE")
 
 figure, axs = jDraw.creatMultiMapPlot(1, 2)
 
-stretchWeights = {"A": 1,
-                  "B": 1,
-                  "C": 1,
-                  "D": 1,
-                  "E": 1,
-                  "F": 1,
-                  "G": 1,
-                  "H": 1,
-                  "I": 1,
-                  "J": 1,
-                  "K": 1,
-                  "L": 1}
+armStretchWeights = {"SHORE": 0.33,
+                     "JUNGLE": 2,
+                     "DESERT": 1,
+                     "MOUNTAINS": 2,
+                     "CITY": 1,
+                     "RIVERSIDE": 0.5}
 
 embedding, skeletons = \
     tbx.generateLayoutSkeletons(layoutSpec=layoutSpec,
-                                embeddingMethod=lyt.DefaultEmbedding(),
-                                skeletonGenerator=lyt.StraightHalfEdgeSkeletonGenerator(stretchWeights))
+                                embeddingMethod=lyt.DefaultEmbedding(applyForceDirected=False),
+                                skeletonGenerator=lyt.StraightHalfEdgeSkeletonGenerator(armStretchWeights))
 
 jDraw.addAreaLayoutGraph(axs[0], layoutSpec, embedding, drawNeighbourhoods=True)
 layoutColoring = jDraw.createColoringSchemeForAreaLayout(layoutSpec)
@@ -61,18 +47,12 @@ loosSeeds = cnv.LooseSquareCanvasSeedGenerator(20, 20, 0.33).generate()
 randSeeds = cnv.UniformRandomCanvasSeedGenerator(200).generate()
 canvas = cnv.Canvas2D(loosSeeds)
 
-boundRadiusValues = {"A": 1,
-                     "B": 1,
-                     "C": 1,
-                     "D": 1,
-                     "E": 1,
-                     "F": 1,
-                     "G": 1,
-                     "H": 1,
-                     "I": 1,
-                     "J": 1,
-                     "K": 1,
-                     "L": 1}
+boundRadiusValues = {"SHORE": 2,
+                     "JUNGLE": 2,
+                     "DESERT": 2,
+                     "MOUNTAINS": 2,
+                     "CITY": 2,
+                     "RIVERSIDE": 2}
 
 polygons_ecu = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
                                                      layoutSpec=layoutSpec,
