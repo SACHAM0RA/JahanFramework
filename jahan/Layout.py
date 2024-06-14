@@ -11,10 +11,20 @@ from shapely.geometry import Point, Polygon
 
 class AreaLayoutSpecification:
 
-    def __init__(self):
-        self.__areas: list = []
-        self.__neighbourhoods: list = []
-        self.__graph = nx.Graph()
+    def __init__(self, layoutGraph: nx.Graph = None):
+        if layoutGraph is None:
+            self.__areas: list = []
+            self.__neighbourhoods: list = []
+            self.__graph = nx.Graph()
+        else:
+            self.__graph = layoutGraph.copy()
+            self.__areas: list = []
+            self.__neighbourhoods: list = []
+            for node in self.__graph.nodes:
+                self.__areas.append(node)
+
+            for edge in self.__graph.edges:
+                self.__neighbourhoods.append((edge[0], edge[1]))
 
     def __len__(self):
         return len(self.__areas)
@@ -350,7 +360,7 @@ class StraightHalfEdgeSkeletonGenerator(SkeletonGenerator):
                     neighbour_f = 0.5
 
                 a = embedding[area]
-                b = embedding[neighbour]*area_f + embedding[area]*neighbour_f
+                b = embedding[neighbour] * area_f + embedding[area] * neighbour_f
                 segments.append(Segment2D(a, b))
             skeletons.append(AreaSkeleton(area, embedding[area], segments))
         return skeletons
