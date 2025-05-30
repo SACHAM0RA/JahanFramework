@@ -28,11 +28,11 @@ if __name__ == '__main__':
     layoutSpec.connectAreas("S-CORR-B", "CHOKE")
     layoutSpec.connectAreas("L-CORR-B", "CHOKE")
 
-    squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
-    hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()
+    #squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
+    #hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()
     radialSeeds = cnv.RadialCanvasSeedGenerator(0.05, 150).generate()
-    loosSeeds = cnv.LooseSquareCanvasSeedGenerator(20, 20, 0.33).generate()
-    randSeeds = cnv.UniformRandomCanvasSeedGenerator(400).generate()
+    #loosSeeds = cnv.LooseSquareCanvasSeedGenerator(20, 20, 0.33).generate()
+    #randSeeds = cnv.UniformRandomCanvasSeedGenerator(400).generate()
     canvas = cnv.Canvas2D(radialSeeds)
 
     stretchWeights = {"BASE-A": 0.75,
@@ -65,34 +65,36 @@ if __name__ == '__main__':
                                                          distanceFunction=tbx.EuclideanDistanceCalculator(),
                                                          deletionDepth=1)
 
-    polygons_man = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
-                                                         layoutSpec=layoutSpec,
-                                                         skeletons=skeletons,
-                                                         BoundRadiusValues=boundRadiusValues,
-                                                         distanceFunction=tbx.ManhattanDistanceCalculator())
+    #polygons_man = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
+    #                                                     layoutSpec=layoutSpec,
+    #                                                     skeletons=skeletons,
+    #                                                     BoundRadiusValues=boundRadiusValues,
+    #                                                     distanceFunction=tbx.ManhattanDistanceCalculator())
 
-    polygons_che = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
-                                                         layoutSpec=layoutSpec,
-                                                         skeletons=skeletons,
-                                                         BoundRadiusValues=boundRadiusValues,
-                                                         distanceFunction=tbx.ChebyshevDistanceCalculator())
+    #polygons_che = tbx.GeneratePolygonsFromAreaSkeletons(canvas=canvas,
+    #                                                     layoutSpec=layoutSpec,
+    #                                                     skeletons=skeletons,
+    #                                                     BoundRadiusValues=boundRadiusValues,
+    #                                                     distanceFunction=tbx.ChebyshevDistanceCalculator())
     polygons = polygons_ecu
 
     heightMap = GridMap(200, 200)
 
-    landscapes = {"NO_COVER": lnd.LandscapeProfile("NONE", 0.0, lnd.NONE_ITEM),
-                  "COVER": lnd.LandscapeProfile("NONE", 0.01, {"COVER": 1})}
+    landscapeProfiles = {
+        "NO_COVER":   lnd.LandscapeProfile(surfaceType="NONE", itemDensity=0.0, itemTypes=lnd.NONE_ITEM),
+        "COVER":      lnd.LandscapeProfile(surfaceType="NONE", itemDensity=0.01, itemTypes={"COVER": 1})
+    }
 
-    landscapeGenerator_0 = lnd.SingleProfileLandscapeGenerator(desiredLandscapeName="COVER")
-    landscapeGenerator_1 = lnd.SingleProfileLandscapeGenerator(desiredLandscapeName="NO_COVER")
+    landscapeGenerator_cover = lnd.SingleProfileLandscapeGenerator(desiredLandscapeName="COVER")
+    landscapeGenerator_empty = lnd.SingleProfileLandscapeGenerator(desiredLandscapeName="NO_COVER")
 
-    landscapeSetting = {"BASE-A": landscapeGenerator_1,
-                        "BASE-B": landscapeGenerator_1,
-                        "CHOKE": landscapeGenerator_0,
-                        "S-CORR-A": landscapeGenerator_1,
-                        "L-CORR-A": landscapeGenerator_1,
-                        "S-CORR-B": landscapeGenerator_1,
-                        "L-CORR-B": landscapeGenerator_1}
+    landscapeSetting = {"BASE-A": landscapeGenerator_empty,
+                        "BASE-B": landscapeGenerator_empty,
+                        "CHOKE": landscapeGenerator_cover,
+                        "S-CORR-A": landscapeGenerator_empty,
+                        "L-CORR-A": landscapeGenerator_empty,
+                        "S-CORR-B": landscapeGenerator_empty,
+                        "L-CORR-B": landscapeGenerator_empty}
 
     influenceMaps = tbx.generateAreaInfluenceMapFromPolygons(polygons=polygons,
                                                              fadeRadius=0.001,
@@ -100,7 +102,7 @@ if __name__ == '__main__':
                                                              mapHeight=200)
 
     landscapeMaps, surfaceMaps, itemDensityMap, itemTypeMaps, itemLocations = \
-        tbx.generateLandscapeData(landscapes=landscapes,
+        tbx.generateLandscapeData(landscapes=landscapeProfiles,
                                   landscapeSetting=landscapeSetting,
                                   mapWidth=200,
                                   mapHeight=200,

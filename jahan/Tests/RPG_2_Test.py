@@ -24,11 +24,11 @@ if __name__ == '__main__':
     layoutSpec.connectAreas("MOUNTAINS", "RIVERSIDE")
     layoutSpec.connectAreas("CITY", "RIVERSIDE")
 
-    squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
-    hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()
-    radialSeeds = cnv.RadialCanvasSeedGenerator(0.1, 75).generate()
+    #squareSeeds = cnv.SquareCanvasSeedGenerator(20, 20).generate()
+    #hexSeeds = cnv.HexagonCanvasSeedGenerator(20, 20).generate()
+    #radialSeeds = cnv.RadialCanvasSeedGenerator(0.1, 75).generate()
     loosSeeds = cnv.LooseSquareCanvasSeedGenerator(20, 20, 0.33).generate()
-    randSeeds = cnv.UniformRandomCanvasSeedGenerator(200).generate()
+    #randSeeds = cnv.UniformRandomCanvasSeedGenerator(200).generate()
     canvas = cnv.Canvas2D(loosSeeds)
 
     armStretchWeights = {"SHORE": 0.33,
